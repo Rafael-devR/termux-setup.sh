@@ -5,6 +5,10 @@ import (
 	"os"
 
 	"github.com/Rafael-devR/termux-setup.sh/internal/cli"
+	"github.com/Rafael-devR/termux-setup.sh/internal/sys"
 )
 
-func main() { os.Exit(cli.Execute(os.Args[1:], os.Stdout, os.Stderr)) }
+func main() {
+	sys.FixTimezone()
+	os.Exit(cli.Execute(os.Args[1:], os.Stdout, os.Stderr))
+}

@@ -58,9 +58,10 @@ func New(stdout, stderr io.Writer) *cobra.Command {
 
 Sem comando abre a interface. Os comandos abaixo fazem direto;
 com --sim não fazem nenhuma pergunta.`,
-		Version:       app.Version,
-		SilenceUsage:  true,
-		SilenceErrors: true,
+		Version:               app.Version,
+		DisableFlagsInUseLine: true,
+		SilenceUsage:          true,
+		SilenceErrors:         true,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			switch { // compatibilidade com as opções do script antigo
 			case f.legacyTudo:
@@ -88,6 +89,18 @@ com --sim não fazem nenhuma pergunta.`,
 	root.SetOut(stdout)
 	root.SetErr(stderr)
 	root.SetVersionTemplate("termux-setup {{.Version}}\n")
+	root.SetUsageTemplate(usagePT)
+	root.CompletionOptions.HiddenDefaultCmd = true
+	root.PersistentFlags().BoolP("help", "h", false, "mostra esta ajuda")
+	root.Flags().BoolP("version", "v", false, "mostra a versão")
+	root.SetHelpCommand(&cobra.Command{Use: "help [comando]", Short: "Ajuda sobre um comando", Hidden: true,
+		Run: func(c *cobra.Command, args []string) {
+			if sub, _, err := c.Root().Find(args); err == nil && sub != nil {
+				_ = sub.Help()
+				return
+			}
+			_ = c.Root().Help()
+		}})
 	pf := root.PersistentFlags()
 	pf.BoolVar(&f.dry, "teste", false, "simulação: não instala nada (Termux de mentira em pasta temporária)")
 	pf.BoolVarP(&f.auto, "sim", "y", false, "não faz perguntas (usa os padrões)")
@@ -126,6 +139,25 @@ com --sim não fazem nenhuma pergunta.`,
 	)
 	return root
 }
+
+const usagePT = `Uso:{{if .Runnable}}
+  {{.UseLine}}{{end}}{{if .HasAvailableSubCommands}}
+  {{.CommandPath}} [comando]{{end}}{{if gt (len .Aliases) 0}}
+
+Apelidos:
+  {{.NameAndAliases}}{{end}}{{if .HasAvailableSubCommands}}
+
+Comandos:{{range .Commands}}{{if .IsAvailableCommand}}
+  {{rpad .Name .NamePadding }} {{.Short}}{{end}}{{end}}{{end}}{{if .HasAvailableLocalFlags}}
+
+Opções:
+{{.LocalFlags.FlagUsages | trimTrailingWhitespaces}}{{end}}{{if .HasAvailableInheritedFlags}}
+
+Opções globais:
+{{.InheritedFlags.FlagUsages | trimTrailingWhitespaces}}{{end}}{{if .HasAvailableSubCommands}}
+
+Use "{{.CommandPath}} [comando] --help" para mais detalhes.{{end}}
+`
 
 func isTTY() bool { return term.IsTerminal(os.Stdout.Fd()) && term.IsTerminal(os.Stdin.Fd()) }
 

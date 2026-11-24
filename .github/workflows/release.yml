@@ -1,0 +1,30 @@
+name: Release
+
+# Publica os binários quando uma tag vX.Y.Z é enviada:
+#   git tag v6.0.0 && git push origin v6.0.0
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Testes
+        run: go test ./...
+      - name: Compilar
+        run: scripts/build-release.sh "$GITHUB_REF_NAME"
+      - name: Publicar
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/*.tar.gz
+            dist/checksums.txt
+          generate_release_notes: true
