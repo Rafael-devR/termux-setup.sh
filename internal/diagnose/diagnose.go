@@ -21,6 +21,7 @@ var rules = []rule{
 	{regexp.MustCompile(`Unable to locate package`), "Algum pacote não existe neste espelho/arquitetura."},
 	{regexp.MustCompile(`\bKilled\b|signal 9`), "O Android matou um processo (memória). Feche apps; Opções do desenvolvedor > limite de processos."},
 	{regexp.MustCompile(`(?i)permission denied`), "Erro de permissão em algum arquivo."},
+	{regexp.MustCompile(`EBADPLATFORM`), "O npm recusou a plataforma (o Node do Ubuntu se acha \"android\"). Atualize o termux-setup: ele já pede --os=linux."},
 }
 
 // Hints devolve as explicações para os erros encontrados no log.

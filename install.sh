@@ -75,6 +75,18 @@ if [ "$FROM_SOURCE" = 1 ] || ! from_release; then
   from_source
 fi
 
+# O script bash antigo (v4/v5) se copiava para ~/bin/termux-setup, e o ~/bin vem
+# antes do $PREFIX/bin no PATH: ele ficaria na frente da versão nova. Só mexe
+# se for um script de texto (nunca um binário); guarda uma cópia antes.
+OLD="$HOME/bin/termux-setup"
+if [ -f "$OLD" ] && [ ! -L "$OLD" ] && head -c 2 "$OLD" | grep -q '^#!'; then
+  mkdir -p "$HOME/termux-setup-logs"
+  cp "$OLD" "$HOME/termux-setup-logs/termux-setup-antigo.sh"
+  rm -f "$OLD"
+  say "removi o script antigo ~/bin/termux-setup (cópia em ~/termux-setup-logs/termux-setup-antigo.sh)"
+fi
+hash -r 2>/dev/null || true
+
 say "pronto: $("$BIN" --version)"
 printf '\n  \033[1mtermux-setup\033[0m          abre o menu\n'
 printf '  \033[1mtermux-setup --teste\033[0m  simulação (não instala nada)\n'
