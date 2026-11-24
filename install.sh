@@ -45,11 +45,21 @@ esac
 TMP="$(mktemp -d "$PREFIX/tmp/tsetup-inst.XXXXXX")"
 trap 'rm -rf "$TMP"' EXIT
 
+# Descobre a versão mais nova. O redirecionamento de /releases/latest não tem
+# limite de uso (a API do GitHub tem 60 consultas por hora por rede, e
+# redes de celular dividem o mesmo endereço) e não vem de cache velho.
+latest_version() {
+  url="$(curl -sIL -o /dev/null -w '%{url_effective}' -H 'Cache-Control: no-cache' \
+    "https://github.com/$REPO/releases/latest" 2>/dev/null)" || url=""
+  case "$url" in
+    */releases/tag/*) echo "${url##*/}"; return 0 ;;
+  esac
+  curl -fsSL -H 'Cache-Control: no-cache' "https://api.github.com/repos/$REPO/releases/latest" 2>/dev/null \
+    | sed -n 's/.*"tag_name": *"\([^"]*\)".*/\1/p' | head -n1
+}
+
 from_release() {
-  if [ -z "$VERSION" ]; then
-    VERSION="$(curl -fsSL "https://api.github.com/repos/$REPO/releases/latest" 2>/dev/null \
-      | sed -n 's/.*"tag_name": *"\([^"]*\)".*/\1/p' | head -n1)" || true
-  fi
+  if [ -z "$VERSION" ]; then VERSION="$(latest_version)" || true; fi
   [ -n "$VERSION" ] || return 1
   base="https://github.com/$REPO/releases/download/$VERSION"
   file="termux-setup_${ASSET}.tar.gz"
@@ -87,7 +97,11 @@ if [ -f "$OLD" ] && [ ! -L "$OLD" ] && head -c 2 "$OLD" | grep -q '^#!'; then
 fi
 hash -r 2>/dev/null || true
 
-say "pronto: $("$BIN" --version)"
+GOT="$("$BIN" --version 2>/dev/null || true)"
+say "pronto: $GOT"
+if [ -n "$VERSION" ] && [ "$FROM_SOURCE" = 0 ] && [ "${GOT##* }" != "$VERSION" ]; then
+  printf '\033[1;33m!\033[0m a versão instalada (%s) não é a esperada (%s)\n' "${GOT##* }" "$VERSION"
+fi
 printf '\n  \033[1mtermux-setup\033[0m          abre o menu\n'
 printf '  \033[1mtermux-setup --teste\033[0m  simulação (não instala nada)\n'
 printf '  \033[1mtermux-setup --help\033[0m   todos os comandos\n\n'
