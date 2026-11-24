@@ -1,12 +1,12 @@
 #!/data/data/com.termux/files/usr/bin/bash
 # =====================================================================
-#  TERMUX SETUP v4.0
+#  TERMUX SETUP v4.1
 #  Painel fixo, menu por setas, estimativas, log final, Ubuntu (proot)
 #  + Claude Code, Codex CLI e Gemini CLI (instaladores oficiais)
 #  + Aparência: barra de teclas, tema VS Code, fonte JetBrains Mono
 #  + GitHub (login por token) e Root (tsu) opcionais.
-#  Uso:  bash termux-setup.sh            (modo normal)
-#        bash termux-setup.sh --teste    (simulação, não instala nada)
+#  Uso:  bash termux-setup.sh               (menu)
+#        bash termux-setup.sh --ajuda       (lista todas as opções)
 #  NÃO use "source". Nunca fecha o Termux sozinho.
 # =====================================================================
 
@@ -18,10 +18,57 @@ if [ -z "${BASH_VERSINFO:-}" ] || [ "${BASH_VERSINFO[0]}" -lt 4 ]; then
   echo "Este script precisa de bash 4 ou superior."; exit 1
 fi
 
-VERSION="4.0"
+VERSION="4.1"
 SELF="$(readlink -f "$0" 2>/dev/null || echo "$0")"
-DRY=0
-for a in "$@"; do [ "$a" = "--teste" ] && DRY=1; done
+
+# ================================================================= CONFIGURAÇÃO
+# Mude aqui as versões sem precisar mexer no resto do script.
+JAVA_PKGS="openjdk-21|openjdk-17"         # "a|b" = usa o primeiro que existir
+NODE_PKGS="nodejs-lts|nodejs"
+UBUNTU_VERSIONS="26.04 24.04"             # tenta na ordem; a 1ª é a preferida
+UB="ubuntu"                               # nome da distro no proot-distro
+# Usuário comum criado dentro do Ubuntu. Programas como o Claude Code não
+# devem rodar como root, por isso as IAs usam esse usuário (casa: /home/dev).
+UB_USER="dev"
+NODESOURCE_URL="https://deb.nodesource.com/setup_lts.x"
+CLAUDE_URL="https://claude.ai/install.sh"
+FONT_VER="2.304"
+FONT_URL="https://github.com/JetBrains/JetBrainsMono/releases/download/v${FONT_VER}/JetBrainsMono-${FONT_VER}.zip"
+FONT_SHA256="6f6376c6ed2960ea8a963cd7387ec9d76e3f629125bc33d1fdcd7eb7012f7bbf"
+
+# ================================================================= ARGUMENTOS
+usage() {
+  cat <<EOF
+Termux Setup v$VERSION
+Uso: bash termux-setup.sh [opção] [--sim] [--teste]
+
+  (sem opção)     abre o menu
+  --tudo          instalação completa (tudo + IA)
+  --dev           dev padrão (recomendado)
+  --ia            Ubuntu + Claude Code, Codex e Gemini
+  --atualizar     atualiza Termux, Ubuntu e IAs (sem menu)
+  --desfazer      restaura espelho, aparência e .bashrc originais
+  --sim           não faz perguntas (usa os padrões)
+  --teste         simulação: não instala nada
+  --ajuda         mostra esta ajuda
+EOF
+}
+DRY=0; AUTO=0; ACTION=""
+for a in "$@"; do
+  case "$a" in
+    --teste) DRY=1 ;;
+    --sim|-y) AUTO=1 ;;
+    --tudo|--dev|--ia|--atualizar|--desfazer) ACTION="${a#--}" ;;
+    -h|--ajuda|--help) usage; exit 0 ;;
+    *) echo "Opção desconhecida: $a"; echo; usage; exit 1 ;;
+  esac
+done
+
+# só roda dentro do Termux (exceto no modo teste)
+if [ "$DRY" = 0 ] && [ -z "${TERMUX_VERSION:-}" ] && [ ! -x /data/data/com.termux/files/usr/bin/bash ]; then
+  echo "Este script é só para o Termux (Android). Use --teste para simular."
+  exit 1
+fi
 
 if [ "$DRY" = 1 ]; then
   PREFIX="$(mktemp -d)"; HOME="$(mktemp -d)"
@@ -86,23 +133,21 @@ MIRRORS=(
 )
 
 # ---------------------------------------------------------------- módulos
-MOD_ORDER=(base build python node java go rust web db net extras term dev2 api ubuntu claude codex gemini hush theme font keys root)
+MOD_ORDER=(base build python node java web db net extras term dev2 api ubuntu claude codex gemini hush theme font keys root)
 declare -A MOD_NAME=(
   [base]="Base: git ssh vim zip"
   [build]="Compiladores: clang make cmake"
   [python]="Python + pip + venv"
   [node]="Node.js LTS + yarn + tsc"
   [java]="Java 21 + gradle + maven"
-  [go]="Go"
-  [rust]="Rust"
-  [web]="PHP, Ruby, Perl"
+  [web]="Ruby + Perl"
   [db]="SQLite + Redis"
   [net]="Rede: nmap rsync netcat"
   [extras]="Extras: tmux jq rg htop"
-  [term]="Terminal bonito: starship eza"
+  [term]="Terminal: eza + zoxide"
   [dev2]="Dev+: gh lazygit neovim"
   [api]="Termux:API (notificações)"
-  [ubuntu]="Ubuntu 26.04 LTS (proot)"
+  [ubuntu]="Ubuntu ${UBUNTU_VERSIONS%% *} LTS (proot)"
   [claude]="Claude Code (oficial)"
   [codex]="Codex CLI (OpenAI)"
   [gemini]="Gemini CLI (Google)"
@@ -117,22 +162,32 @@ declare -A MOD_PKGS=(
   [base]="git curl wget nano vim openssh zip unzip tar which man termux-tools termux-exec findutils grep sed file tree less"
   [build]="clang make cmake pkg-config binutils autoconf automake libtool ninja patch libffi openssl libxml2 libxslt libjpeg-turbo libpng zlib"
   [python]="python python-pip"
-  [node]="nodejs-lts|nodejs"
-  [java]="openjdk-21|openjdk-17 gradle maven"
-  [go]="golang"
-  [rust]="rust"
-  [web]="php ruby perl"
+  [node]="$NODE_PKGS"
+  [java]="$JAVA_PKGS gradle maven"
+  [web]="ruby perl"
   [db]="sqlite redis"
   [net]="nmap sshpass netcat-openbsd dnsutils traceroute net-tools rsync"
   [extras]="htop fastfetch|neofetch tmux jq ripgrep fd bat fzf ncdu zsh"
-  [term]="starship zoxide eza"
+  [term]="zoxide eza"
   [dev2]="gh lazygit neovim"
   [api]="termux-api"
 )
-# peso (segundos estimados) usado na barra de progresso; download/disco em MB (aprox.)
-declare -A MOD_W=(  [base]=12 [build]=45 [python]=20 [node]=25 [java]=120 [go]=30 [rust]=70 [web]=50 [db]=15 [net]=40 [extras]=40 [term]=15 [dev2]=40 [api]=6 [ubuntu]=200 [claude]=50 [codex]=30 [gemini]=35 [hush]=1 [theme]=1 [font]=8 [keys]=1 [root]=12 )
-declare -A MOD_DL=( [base]=6  [build]=70 [python]=35 [node]=12 [java]=280 [go]=90 [rust]=150 [web]=80 [db]=2  [net]=9  [extras]=11 [term]=15 [dev2]=60 [api]=1 [ubuntu]=160 [claude]=270 [codex]=40 [gemini]=80 [hush]=0 [theme]=0 [font]=2 [keys]=0 [root]=2 )
-declare -A MOD_DISK=([base]=25 [build]=400 [python]=150 [node]=60 [java]=460 [go]=400 [rust]=900 [web]=300 [db]=6  [net]=44 [extras]=42 [term]=40 [dev2]=200 [api]=1 [ubuntu]=500 [claude]=300 [codex]=120 [gemini]=250 [hush]=0 [theme]=0 [font]=2 [keys]=0 [root]=5 )
+# peso (segundos estimados) usado na barra de progresso; download/disco em MB (aprox., base arm64)
+declare -A MOD_W=(  [base]=12 [build]=45 [python]=20 [node]=25 [java]=120 [web]=35 [db]=15 [net]=40 [extras]=40 [term]=12 [dev2]=40 [api]=6 [ubuntu]=200 [claude]=50 [codex]=30 [gemini]=35 [hush]=1 [theme]=1 [font]=8 [keys]=1 [root]=12 )
+declare -A MOD_DL=( [base]=6  [build]=70 [python]=35 [node]=12 [java]=280 [web]=45 [db]=2  [net]=9  [extras]=11 [term]=12 [dev2]=60 [api]=1 [ubuntu]=160 [claude]=270 [codex]=40 [gemini]=80 [hush]=0 [theme]=0 [font]=2 [keys]=0 [root]=2 )
+declare -A MOD_DISK=([base]=25 [build]=400 [python]=150 [node]=60 [java]=460 [web]=170 [db]=6  [net]=44 [extras]=42 [term]=30 [dev2]=200 [api]=1 [ubuntu]=500 [claude]=300 [codex]=120 [gemini]=250 [hush]=0 [theme]=0 [font]=2 [keys]=0 [root]=5 )
+
+# ---------------------------------------------------------------- arquitetura
+# Os tamanhos acima são para arm64. Em 32 bits os pacotes são ~20% menores,
+# e Claude Code / Codex não têm versão para 32 bits.
+ARCH="$(uname -m 2>/dev/null)"
+case "$ARCH" in
+  aarch64|arm64|x86_64) ARCH_PCT=100; ARCH_64=1 ;;
+  *) ARCH_PCT=80; ARCH_64=0 ;;
+esac
+arch_ok() { # $1 = módulo -> 0 se funciona nesta arquitetura
+  case "$1" in claude|codex) [ "$ARCH_64" = 1 ] ;; *) return 0 ;; esac
+}
 
 # ================================================================= UI
 bar() { # bar PCT LARGURA
@@ -231,7 +286,8 @@ menu_check() { # ids...  -> 0 continuar / 1 voltar
       m="${ids[i]}"
       if [ "${SEL[$m]:-0}" = 1 ]; then mark="${C_G}[x]${C_N}"; else mark="[ ]"; fi
       if [ "$i" -eq "$cur" ]; then ptr="${C_CY}▸${C_N}"; else ptr=" "; fi
-      L " $ptr $mark ${MOD_NAME[$m]} ${C_D}~${MOD_DL[$m]}MB${C_N}"
+      if arch_ok "$m"; then L " $ptr $mark ${MOD_NAME[$m]} ${C_D}~$(( MOD_DL[$m] * ARCH_PCT / 100 ))MB${C_N}"
+      else L " $ptr ${C_D}[-] ${MOD_NAME[$m]} (sem suporte a $ARCH)${C_N}"; fi
     done
     L " ${C_D}Enter continua · q volta${C_N}"
     printf '\033[J'
@@ -239,8 +295,9 @@ menu_check() { # ids...  -> 0 continuar / 1 voltar
     case "$KEY" in
       up|k)   cur=$(( (cur - 1 + n) % n )) ;;
       down|j) cur=$(( (cur + 1) % n )) ;;
-      space)  m="${ids[cur]}"; if [ "${SEL[$m]:-0}" = 1 ]; then SEL[$m]=0; else SEL[$m]=1; fi ;;
-      a|A)    for m in "${ids[@]}"; do SEL[$m]=1; done ;;
+      space)  m="${ids[cur]}"; arch_ok "$m" || continue
+              if [ "${SEL[$m]:-0}" = 1 ]; then SEL[$m]=0; else SEL[$m]=1; fi ;;
+      a|A)    for m in "${ids[@]}"; do arch_ok "$m" && SEL[$m]=1; done ;;
       n|N)    for m in "${ids[@]}"; do SEL[$m]=0; done ;;
       enter)  show_cur; return 0 ;;
       q|esc|eof) show_cur; return 1 ;;
@@ -252,12 +309,22 @@ new_run() {
   TS="$(date +%Y%m%d-%H%M%S)"
   LOG="$LOGDIR/setup-$TS.log"
   SUMMARY="$LOGDIR/resumo-$TS.txt"
-  : > "$LOG"; : > "$WORK/unavailable"; : > "$WORK/failed_pkgs"; : > "$WORK/tried"
+  : > "$LOG"; : > "$WORK/unavailable"; : > "$WORK/failed_pkgs"; : > "$WORK/tried"; : > "$WORK/warnings"
   rm -f "$WORK/mirror_used"
 }
 
 # ================================================================= PASSOS
 apt_i() { apt-get install "${APT_OPTS[@]}" "$@"; }
+warn() { echo "[aviso] $*"; echo "$*" >> "$WORK/warnings"; } # vai para o resumo final
+
+# baixa um script de instalação para um arquivo, confere e só depois executa.
+# (no lugar de "curl | bash": se a rede cair no meio, nada meio-baixado é executado)
+# uso: fetch_check URL ARQUIVO
+fetch_check() {
+  curl -fsSL --retry 2 --max-time 120 -o "$2" "$1" || { echo "Download falhou: $1"; return 1; }
+  [ -s "$2" ] || { echo "Arquivo vazio: $1"; return 1; }
+  head -n1 "$2" | grep -q '^#!' || { echo "Não parece um script (rede bloqueada?): $1"; return 1; }
+}
 
 pick_pkg() { # "a|b" -> primeiro disponível
   local alt IFS='|'
@@ -323,9 +390,11 @@ step_mirrors() {
 apply_mirror() {
   local url="${1%/}" f changed=0 bk="$LOGDIR/backup-apt-$TS"
   [ -n "$url" ] || return 1
-  mkdir -p "$bk"
-  cp -a "$PREFIX/etc/apt/sources.list" "$bk/" 2>/dev/null
-  cp -a "$PREFIX/etc/apt/sources.list.d" "$bk/" 2>/dev/null
+  if [ ! -d "$bk" ]; then # só na 1ª troca da execução (não sobrescreve o original)
+    mkdir -p "$bk"
+    cp -a "$PREFIX/etc/apt/sources.list" "$bk/" 2>/dev/null
+    cp -a "$PREFIX/etc/apt/sources.list.d" "$bk/" 2>/dev/null
+  fi
   # formato novo (deb822): troca só a linha URIs do repositório "stable"
   for f in "$PREFIX"/etc/apt/sources.list.d/*.sources; do
     [ -f "$f" ] || continue
@@ -401,10 +470,9 @@ step_storage() { termux-setup-storage; sleep 2; return 0; }
 step_cleanup() { apt-get autoremove -y; apt-get clean; return 0; }
 
 # ---------------------------------------------------------------- Ubuntu + IAs
-UB=ubuntu
 ub_has()  { proot-distro login "$UB" -- true >/dev/null 2>&1; }
 ub_root() { proot-distro login "$UB" -- bash -lc "$1"; }
-ub_dev()  { proot-distro login "$UB" --user dev -- bash -lc "$1"; }
+ub_dev()  { proot-distro login "$UB" --user "$UB_USER" -- bash -lc "$1"; }
 
 step_proot_pkgs() { apt_i proot proot-distro; }
 
@@ -415,41 +483,53 @@ ub_ver() { # versão do Ubuntu instalado (ex.: "Ubuntu 26.04.1 LTS")
 step_ubuntu_install() {
   command -v proot-distro >/dev/null 2>&1 || { echo "proot-distro ausente"; return 1; }
   if ub_has; then echo "Ubuntu já instalado: $(ub_ver). Mantido (não é substituído)."; return 0; fi
-  # tenta a LTS mais nova (26.04); se o proot-distro não tiver, cai para 24.04
-  proot-distro install ubuntu:26.04 || proot-distro install ubuntu:24.04 || proot-distro install ubuntu
-  ub_has && echo "Instalado: $(ub_ver)"
+  # tenta as versões na ordem de UBUNTU_VERSIONS; avisa se não foi a preferida
+  local v want="${UBUNTU_VERSIONS%% *}"
+  for v in $UBUNTU_VERSIONS; do
+    if proot-distro install "$UB:$v"; then
+      [ "$v" != "$want" ] && warn "Ubuntu $want indisponível no proot-distro; instalado o $v."
+      echo "Instalado: $(ub_ver)"; return 0
+    fi
+  done
+  if proot-distro install "$UB"; then
+    warn "Nenhuma versão de [$UBUNTU_VERSIONS] disponível; instalada a padrão: $(ub_ver)."
+    return 0
+  fi
+  return 1
 }
 
 step_ubuntu_base() {
   ub_has || { echo "Ubuntu não encontrado"; return 1; }
-  ub_root '
+  ub_root "U=$(printf '%q' "$UB_USER")"'
 set -e
 export DEBIAN_FRONTEND=noninteractive
 echo "APT::Sandbox::User \"root\";" > /etc/apt/apt.conf.d/99proot
 apt-get update
 apt-get -y upgrade
 apt-get install -y --no-install-recommends curl git ca-certificates gnupg bash ripgrep unzip xz-utils less nano locales
-id dev >/dev/null 2>&1 || useradd -m -s /bin/bash dev
-mkdir -p /home/dev/projetos
-chown dev:dev /home/dev/projetos
-touch /home/dev/.profile
-grep -q "termux-setup" /home/dev/.profile || cat >> /home/dev/.profile <<EOP
+id "$U" >/dev/null 2>&1 || useradd -m -s /bin/bash "$U"
+mkdir -p "/home/$U/projetos"
+chown "$U:$U" "/home/$U/projetos"
+touch "/home/$U/.profile"
+grep -q "termux-setup" "/home/$U/.profile" || cat >> "/home/$U/.profile" <<EOP
 # termux-setup
 export PATH="\$HOME/.local/bin:\$HOME/.npm-global/bin:\$PATH"
 EOP
-chown dev:dev /home/dev/.profile
+chown "$U:$U" "/home/$U/.profile"
 '
 }
 
 step_ubuntu_node() {
   ub_has || { echo "Ubuntu não encontrado"; return 1; }
-  ub_root '
+  ub_root "URL=$(printf '%q' "$NODESOURCE_URL"); $(declare -f fetch_check)"'
 set -e
 export DEBIAN_FRONTEND=noninteractive
 if command -v node >/dev/null 2>&1 && [ "$(node -v | cut -d. -f1 | tr -d v)" -ge 20 ]; then
   echo "node ok: $(node -v)"; exit 0
 fi
-curl -fsSL https://deb.nodesource.com/setup_lts.x | bash -
+f="$(mktemp)"
+fetch_check "$URL" "$f"
+bash "$f"; rm -f "$f"
 apt-get install -y nodejs
 node -v; npm -v
 '
@@ -458,12 +538,18 @@ node -v; npm -v
 step_claude() {
   ub_has || { echo "Ubuntu não encontrado"; return 1; }
   # instalador oficial da Anthropic (Linux ARM64, dentro do Ubuntu)
-  ub_dev 'set -e; curl -fsSL https://claude.ai/install.sh | bash; export PATH="$HOME/.local/bin:$PATH"; claude --version'
+  ub_dev "URL=$(printf '%q' "$CLAUDE_URL"); $(declare -f fetch_check)"'
+set -e
+f="$(mktemp)"
+fetch_check "$URL" "$f"
+bash "$f"; rm -f "$f"
+export PATH="$HOME/.local/bin:$PATH"
+claude --version'
 }
 
 step_ub_npm() { # $1 = pacote npm
   ub_has || { echo "Ubuntu não encontrado"; return 1; }
-  ub_dev "set -e; mkdir -p ~/.npm-global; npm config set prefix ~/.npm-global; export PATH=\"\$HOME/.npm-global/bin:\$PATH\"; npm install -g $1"
+  ub_dev "set -e; mkdir -p ~/.npm-global; npm config set prefix ~/.npm-global; export PATH=\"\$HOME/.npm-global/bin:\$PATH\"; npm install -g $(printf '%q' "$1")"
 }
 
 step_ub_upgrade() {
@@ -484,15 +570,16 @@ step_wrappers() {
   mkdir -p "$HOME/bin" "$HOME/projetos"
   cat > "$HOME/bin/ia-run" <<'EOS'
 #!/data/data/com.termux/files/usr/bin/bash
-# uso: ia-run <comando> [args] — roda no Ubuntu (usuário dev) na pasta atual do Termux.
-# A pasta atual aparece dentro do Ubuntu como /work/<nome-da-pasta>.
+# uso: ia-run <comando> [args] — roda no Ubuntu (usuário __UB_USER__) na pasta atual do Termux.
+# A pasta atual do Termux é "emprestada" ao Ubuntu e aparece lá como /work/<nome-da-pasta>:
+# os arquivos são os MESMOS (o que a IA editar lá, muda aqui).
 HOST_DIR="$PWD"
 NAME="$(basename "$HOST_DIR")"
 case "$NAME" in ""|"/") NAME="raiz" ;; esac
 NAME="${NAME// /_}"
 DEST="/work/$NAME"
 command -v termux-wake-lock >/dev/null 2>&1 && termux-wake-lock 2>/dev/null
-proot-distro login ubuntu --user dev --bind "$HOST_DIR:$DEST" --work-dir "$DEST" \
+proot-distro login __UB__ --user __UB_USER__ --bind "$HOST_DIR:$DEST" --work-dir "$DEST" \
   -- bash -lc 'exec "$@"' _ "$@"
 rc=$?
 command -v termux-wake-unlock >/dev/null 2>&1 && termux-wake-unlock 2>/dev/null
@@ -502,12 +589,13 @@ EOS
     printf '#!/data/data/com.termux/files/usr/bin/bash\nexec "$HOME/bin/ia-run" %s "$@"\n' "$c" > "$HOME/bin/$c"
   done
   printf '#!/data/data/com.termux/files/usr/bin/bash\nexec "$HOME/bin/ia-run" bash -l\n' > "$HOME/bin/ubuntu"
-  printf '#!/data/data/com.termux/files/usr/bin/bash\nexec proot-distro login ubuntu\n' > "$HOME/bin/ubuntu-root"
+  printf '#!/data/data/com.termux/files/usr/bin/bash\nexec proot-distro login %s\n' "$UB" > "$HOME/bin/ubuntu-root"
   cat > "$HOME/bin/ia-update" <<'EOS'
 #!/data/data/com.termux/files/usr/bin/bash
-proot-distro login ubuntu -- bash -lc 'export DEBIAN_FRONTEND=noninteractive; apt-get update && apt-get -y upgrade'
+proot-distro login __UB__ -- bash -lc 'export DEBIAN_FRONTEND=noninteractive; apt-get update && apt-get -y upgrade'
 "$HOME/bin/ia-run" bash -lc 'command -v claude >/dev/null && claude update; command -v codex >/dev/null && npm install -g @openai/codex@latest; command -v gemini >/dev/null && npm install -g @google/gemini-cli@latest; true'
 EOS
+  sed -i "s/__UB_USER__/$UB_USER/g; s/__UB__/$UB/g" "$HOME/bin/ia-run" "$HOME/bin/ia-update"
   chmod +x "$HOME"/bin/* 2>/dev/null
   echo "Comandos: claude codex gemini ubuntu ubuntu-root ia-run ia-update"
 }
@@ -532,9 +620,9 @@ echo "== Termux =="
 echo "Arq: $(uname -m) | Android $(getprop ro.build.version.release) | $(getprop ro.product.model)"
 echo "Espelho: $(grep -hE '^(deb |URIs:)' "$PREFIX"/etc/apt/sources.list "$PREFIX"/etc/apt/sources.list.d/*.sources 2>/dev/null | head -n1)"
 df -h "$HOME" | tail -n1
-for c in python node java go rustc clang git; do
+for c in python node java clang git; do
   command -v "$c" >/dev/null 2>&1 || continue
-  if [ "$c" = go ]; then v="$(go version 2>&1 | head -n1)"; else v="$($c --version 2>&1 | head -n1)"; fi
+  if [ "$c" = java ]; then v="$(java -version 2>&1 | head -n1)"; else v="$($c --version 2>&1 | head -n1)"; fi
   printf '  %-7s %s\n' "$c" "$v"
 done
 EOS
@@ -559,15 +647,16 @@ EOS
   sed -i '/# >>> termux-setup >>>/,/# <<< termux-setup <<</d' "$HOME/.bashrc"
   cat >> "$HOME/.bashrc" <<'EOS'
 # >>> termux-setup >>>
-export PATH="$HOME/bin:$PATH"
+# PATH só recebe ~/bin uma vez, mesmo com vários "source ~/.bashrc"
+case ":$PATH:" in *":$HOME/bin:"*) ;; *) export PATH="$HOME/bin:$PATH" ;; esac
 alias ..='cd ..'
 alias gs='git status'
 alias gp='git pull'
 alias p='cd ~/projetos'
 alias venv='source ~/venv/bin/activate'
 if command -v eza >/dev/null 2>&1; then alias ll='eza -lah --git'; else alias ll='ls -lah --color=auto'; fi
-command -v starship >/dev/null 2>&1 && eval "$(starship init bash)"
-command -v zoxide   >/dev/null 2>&1 && eval "$(zoxide init bash)"
+# zoxide ("z pasta") só é ativado uma vez por sessão
+if [ -z "${__TSETUP_Z:-}" ] && command -v zoxide >/dev/null 2>&1; then eval "$(zoxide init bash)"; __TSETUP_Z=1; fi
 # <<< termux-setup <<<
 EOS
   echo "Comandos criados: atualizar limpar info novo termux-setup (projetos em ~/projetos)"
@@ -576,8 +665,10 @@ EOS
 # ---------------------------------------------------------------- Aparência
 backup_termux() { # guarda uma cópia de ~/.termux antes de mudar qualquer coisa
   local bk="$LOGDIR/backup-termux-$TS"
-  [ -d "$HOME/.termux" ] || return 0
-  mkdir -p "$bk"; cp -a "$HOME/.termux/." "$bk/" 2>/dev/null
+  [ -d "$bk" ] && return 0          # já feito nesta execução: não sobrescreve o original
+  mkdir -p "$bk"
+  if [ -d "$HOME/.termux" ]; then cp -a "$HOME/.termux/." "$bk/" 2>/dev/null
+  else touch "$bk/.vazio"; fi       # ~/.termux não existia (o --desfazer apaga o que foi criado)
   return 0
 }
 
@@ -586,7 +677,7 @@ step_hush() {
 }
 
 step_theme() {
-  mkdir -p "$HOME/.termux"; backup_termux
+  backup_termux; mkdir -p "$HOME/.termux"
   cat > "$HOME/.termux/colors.properties" <<'EOS'
 background=#1e1e1e
 foreground=#cccccc
@@ -612,17 +703,22 @@ EOS
 }
 
 step_font() {
-  local d="$WORK/font" f
-  local url="https://github.com/JetBrains/JetBrainsMono/releases/download/v2.304/JetBrainsMono-2.304.zip"
+  local d="$WORK/font" f sum
   command -v curl  >/dev/null 2>&1 || { echo "curl ausente"; return 1; }
   command -v unzip >/dev/null 2>&1 || { echo "unzip ausente"; return 1; }
-  rm -rf "$d"; mkdir -p "$d" "$HOME/.termux"
-  curl -fL --max-time 180 -o "$d/jb.zip" "$url" || { echo "Download da fonte falhou: $url"; return 1; }
+  rm -rf "$d"; mkdir -p "$d"
+  curl -fL --retry 2 --max-time 180 -o "$d/jb.zip" "$FONT_URL" || { echo "Download da fonte falhou: $FONT_URL"; return 1; }
+  # confere se o arquivo é exatamente o oficial (não corrompido nem trocado)
+  if [ -n "$FONT_SHA256" ] && command -v sha256sum >/dev/null 2>&1; then
+    sum="$(sha256sum "$d/jb.zip" | cut -d' ' -f1)"
+    [ "$sum" = "$FONT_SHA256" ] || { echo "SHA256 da fonte não confere (esperado $FONT_SHA256, veio $sum)"; return 1; }
+    echo "SHA256 ok"
+  fi
   unzip -o -q "$d/jb.zip" -d "$d/x" || { echo "unzip falhou"; return 1; }
   f="$(find "$d/x" -name 'JetBrainsMono-Regular.ttf' 2>/dev/null | head -n1)"
   [ -n "$f" ] || { echo "JetBrainsMono-Regular.ttf não encontrado no zip"; return 1; }
-  backup_termux
-  cp "$f" "$HOME/.termux/font.ttf" && echo "Fonte JetBrains Mono instalada"
+  backup_termux; mkdir -p "$HOME/.termux"
+  cp "$f" "$HOME/.termux/font.ttf" && echo "Fonte JetBrains Mono $FONT_VER instalada"
 }
 
 keys_line() { # $1 = preset (1 compacta, 2 grande)
@@ -640,7 +736,7 @@ EOS
 
 step_keys() {
   local f="$HOME/.termux/termux.properties" line
-  mkdir -p "$HOME/.termux"; backup_termux
+  backup_termux; mkdir -p "$HOME/.termux"
   [ -f "$f" ] || : > "$f"
   line="$(keys_line "${KEYS_PRESET:-1}")"
   # troca só a linha extra-keys; as outras configurações do arquivo ficam intactas
@@ -777,6 +873,9 @@ write_summary() {
     for ((i=0; i<TOTAL; i++)); do
       printf '[%s] %s (%s)\n' "${RES_STAT[i]}" "${PLAN_LABEL[i]}" "${RES_TIME[i]}"
     done
+    if [ -s "$WORK/warnings" ]; then
+      echo; echo "--- Avisos ---"; sort -u "$WORK/warnings"
+    fi
     if [ -s "$WORK/unavailable" ]; then
       echo; echo "--- Pacotes indisponíveis (ignorados) ---"; sort -u "$WORK/unavailable" | tr '\n' ' '; echo
     fi
@@ -815,6 +914,9 @@ show_card() {
       INTERROMPIDO) L " ${C_Y}■${C_N} ${PLAN_LABEL[i]:0:$((COLS-6))} (interrompido)" ;;
     esac
   done
+  if [ -s "$WORK/warnings" ]; then
+    L ""; while IFS= read -r line; do L " ${C_Y}! ${line:0:$((COLS-5))}${C_N}"; done < <(sort -u "$WORK/warnings")
+  fi
   d="$(diagnose)"
   if [ -n "$d" ]; then L ""; while IFS= read -r line; do L " ${C_Y}${line:0:$((COLS-3))}${C_N}"; done <<< "$d"; fi
   L ""
@@ -881,7 +983,7 @@ execute_plan() { # [quiet]
   printf '\033[2J\033[H'; hide_cur
   while [ "$DONE" -lt "$TOTAL" ]; do run_step; done
   if [ -z "$quiet" ]; then
-    finish; INSTALL_STARTED=0; pause
+    finish; INSTALL_STARTED=0; [ "$AUTO" = 1 ] || pause
   else
     show_cur
   fi
@@ -921,6 +1023,7 @@ ask_keys_preset() {
 ask_options() {
   local r
   GIT_NAME=""; GIT_MAIL=""; DO_STORAGE=0
+  [ "$AUTO" = 1 ] && { KEYS_PRESET=1; return 0; } # --sim: sem perguntas
   term_size; printf '\033[2J\033[H'; banner "Opções"; show_cur
   if [ -z "$(git config --global user.name 2>/dev/null)" ]; then
     read -r -p " Nome p/ Git (Enter pula): " GIT_NAME || true
@@ -936,6 +1039,7 @@ ask_options() {
 build_plan() { # modo: full | update
   local m need_ub=0 need_node=0
   reset_plan
+  for m in "${MOD_ORDER[@]}"; do arch_ok "$m" || SEL[$m]=0; done # tira o que não roda nesta arquitetura
   add_step "Testar espelhos" step_mirrors "" 4
   add_step "Aplicar melhor espelho" step_apply_mirror "" 1
   add_step "Atualizar listas (apt)" step_update "" 5
@@ -954,8 +1058,8 @@ build_plan() { # modo: full | update
     for m in codex gemini; do [ "${SEL[$m]:-0}" = 1 ] && need_node=1; done
     if [ $need_ub = 1 ]; then
       add_step "Ubuntu: proot-distro" step_proot_pkgs "" 10
-      add_step "Ubuntu 26.04 LTS: instalar" step_ubuntu_install "" 90
-      add_step "Ubuntu: base + usuário dev" step_ubuntu_base "" 60
+      add_step "Ubuntu ${UBUNTU_VERSIONS%% *} LTS: instalar" step_ubuntu_install "" 90
+      add_step "Ubuntu: base + usuário $UB_USER" step_ubuntu_base "" 60
       [ $need_node = 1 ] && add_step "Ubuntu: Node.js LTS" step_ubuntu_node "" 45
       [ "${SEL[claude]:-0}" = 1 ] && add_step "Claude Code (oficial)" step_claude "" 50
       [ "${SEL[codex]:-0}" = 1 ]  && add_step "Codex CLI (OpenAI)" step_ub_npm "@openai/codex" 30
@@ -981,6 +1085,7 @@ est_totals() {
   done
   for m in codex gemini; do [ "${SEL[$m]:-0}" = 1 ] && need_node=1; done
   [ $need_node = 1 ] && { EST_DL=$(( EST_DL + 30 )); EST_DISK=$(( EST_DISK + 150 )); }
+  EST_DL=$(( EST_DL * ARCH_PCT / 100 )); EST_DISK=$(( EST_DISK * ARCH_PCT / 100 ))
   return 0
 }
 
@@ -1001,6 +1106,8 @@ confirm_run() {
   if [ "${SEL[claude]:-0}" = 1 ]; then
     MENU_PRE+=("${C_D}Claude Code: RAM >= 4 GB (requisito oficial).${C_N}")
   fi
+  [ "$ARCH_64" = 0 ] && MENU_PRE+=("${C_Y}$ARCH (32 bits): Claude Code e Codex foram tirados.${C_N}")
+  [ "$AUTO" = 1 ] && return 0 # --sim: confirma sozinho
   MENU_ITEMS=("Iniciar instalação" "Voltar")
   MENU_KEYS=(1 0)
   menu_select "Confirmar"
@@ -1052,10 +1159,9 @@ verify_install() {
   local c v out st name rest
   term_size; printf '\033[2J\033[H'; banner "Verificar instalação"
   L " ${C_B}Termux${C_N}"
-  for c in git python pip node npm java go rustc clang cmake tmux jq rg gh nvim starship; do
+  for c in git python pip node npm java clang cmake ruby tmux jq rg gh nvim eza; do
     if command -v "$c" >/dev/null 2>&1; then
       case "$c" in
-        go)   v="$(timeout 5 go version 2>&1 | head -n1)" ;;
         java) v="$(timeout 8 java -version 2>&1 | head -n1)" ;;
         *)    v="$(timeout 5 "$c" --version 2>&1 | head -n1)" ;;
       esac
@@ -1090,6 +1196,68 @@ menu_log() {
   pause
 }
 
+# ---------------------------------------------------------------- desfazer
+oldest() { ls -dtr "$LOGDIR"/$1-* 2>/dev/null | head -n1; } # backup mais antigo = estado original
+
+step_undo_apt() {
+  local bk; bk="$(oldest backup-apt)"
+  [ -n "$bk" ] || { echo "Nenhum backup do espelho (nunca foi trocado)."; return 0; }
+  echo "Restaurando espelho de: $bk"
+  [ -f "$bk/sources.list" ] && cp -a "$bk/sources.list" "$PREFIX/etc/apt/sources.list"
+  [ -d "$bk/sources.list.d" ] && cp -a "$bk/sources.list.d/." "$PREFIX/etc/apt/sources.list.d/"
+  apt-get update "${APT_OPTS[@]}" || true
+}
+
+step_undo_look() {
+  local bk f="$HOME/.termux/termux.properties"; bk="$(oldest backup-termux)"
+  [ -n "$bk" ] || { echo "Nenhum backup da aparência (nunca foi mudada)."; return 0; }
+  echo "Restaurando aparência de: $bk"
+  rm -f "$HOME/.termux/colors.properties" "$HOME/.termux/font.ttf"
+  if [ -f "$bk/.vazio" ]; then # ~/.termux não existia: só tira a barra de teclas
+    [ -f "$f" ] && { grep -v -E '^[[:space:]]*extra-keys[[:space:]]*=' "$f" > "$f.new"; mv "$f.new" "$f"; }
+  else
+    mkdir -p "$HOME/.termux"; cp -a "$bk/." "$HOME/.termux/"
+  fi
+  rm -f "$HOME/.hushlogin"
+  command -v termux-reload-settings >/dev/null 2>&1 && termux-reload-settings
+  return 0
+}
+
+step_undo_bashrc() {
+  [ -f "$HOME/.bashrc" ] || return 0
+  sed -i '/# >>> termux-setup >>>/,/# <<< termux-setup <<</d' "$HOME/.bashrc"
+  echo "Bloco do termux-setup removido do ~/.bashrc (comandos em ~/bin continuam lá)"
+}
+
+run_undo() {
+  if [ "$AUTO" != 1 ]; then
+    MENU_ITEMS=("Restaurar tudo" "Voltar")
+    MENU_KEYS=(1 0)
+    MENU_PRE=("${C_B}Volta ao estado de antes do 1º uso do script:${C_N}"
+              "${C_D}· espelho apt original${C_N}"
+              "${C_D}· tema, fonte, barra de teclas e boas-vindas${C_N}"
+              "${C_D}· aliases do ~/.bashrc${C_N}"
+              "${C_D}Pacotes instalados e o Ubuntu NÃO são removidos.${C_N}")
+    menu_select "Desfazer"
+    [ "$MENU_IDX" = 0 ] || return 0
+  fi
+  reset_plan
+  add_step "Restaurar espelho original" step_undo_apt "" 5
+  add_step "Restaurar aparência" step_undo_look "" 1
+  add_step "Limpar ~/.bashrc" step_undo_bashrc "" 1
+  clear_sel; execute_plan
+}
+
+# atualiza Termux + (se existir) Ubuntu e IAs
+run_update_all() {
+  clear_sel; build_plan update
+  if command -v proot-distro >/dev/null 2>&1 && ub_has; then
+    add_step "Ubuntu: atualizar pacotes" step_ub_upgrade "" 40
+    add_step "Atualizar Claude/Codex/Gemini" step_ia_update "" 40
+  fi
+  if confirm_run; then execute_plan; fi
+}
+
 run_repair() {
   reset_plan
   add_step "Reparar pacotes quebrados" step_repair "" 30
@@ -1118,7 +1286,7 @@ menu_ia() {
          clear_sel; execute_plan ;;
       3) term_size; printf '\033[2J\033[H'; show_cur
          if command -v proot-distro >/dev/null 2>&1 && ub_has; then
-           proot-distro login "$UB" --user dev -- bash -l
+           proot-distro login "$UB" --user "$UB_USER" -- bash -l
          else
            banner "Ubuntu"; L " ${C_Y}Ubuntu ainda não instalado.${C_N}"; pause
          fi ;;
@@ -1146,7 +1314,10 @@ menu_github() {
   if ! command -v gh >/dev/null 2>&1; then
     L " ${C_Y}O gh não está instalado.${C_N}"
     read -r -p " Instalar agora? [S/n] " r || true
-    [[ ! $r =~ ^[nN] ]] && apt-get install "${APT_OPTS[@]}" gh
+    if [[ ! $r =~ ^[nN] ]]; then
+      # tenta direto; se falhar (listas velhas), atualiza as listas e tenta de novo
+      apt_i gh || { apt-get update "${APT_OPTS[@]}" && apt_i gh; }
+    fi
     command -v gh >/dev/null 2>&1 || { L " ${C_R}gh indisponível.${C_N}"; pause; return; }
   fi
   if gh auth status >/dev/null 2>&1; then
@@ -1174,8 +1345,8 @@ menu_github() {
 
 main_menu() {
   while true; do
-    MENU_ITEMS=("Instalação completa (tudo + IA)" "Dev padrão (recomendado)" "IA & Ubuntu (Claude, Codex, Gemini)" "Aparência (teclas, tema, fonte)" "Personalizada (escolher módulos)" "GitHub (entrar com token)" "Só atualizar o sistema" "Espelhos: testar / trocar" "Reparar pacotes quebrados" "Verificar instalação" "Ver último log" "Sair")
-    MENU_KEYS=(1 2 3 4 5 6 7 8 9 v l 0)
+    MENU_ITEMS=("Instalação completa (tudo + IA)" "Dev padrão (recomendado)" "IA & Ubuntu (Claude, Codex, Gemini)" "Aparência (teclas, tema, fonte)" "Personalizada (escolher módulos)" "GitHub (entrar com token)" "Atualizar tudo (Termux + Ubuntu + IAs)" "Espelhos: testar / trocar" "Reparar pacotes quebrados" "Verificar instalação" "Ver último log" "Desfazer (restaurar original)" "Sair")
+    MENU_KEYS=(1 2 3 4 5 6 7 8 9 v l d 0)
     MENU_PRE=("${C_D}Android $(getprop ro.build.version.release 2>/dev/null || echo ?) · $(getprop ro.product.model 2>/dev/null) · $(uname -m)${C_N}"
               "${C_D}livre $(( $(free_kb) / 1024 )) MB · espelho: $(current_mirror | cut -c1-28)${C_N}")
     menu_select "Menu principal"
@@ -1187,12 +1358,12 @@ main_menu() {
       4) clear_sel; select_dev
          if menu_check "${MOD_ORDER[@]}"; then run_plan_flow; fi ;;
       5) menu_github ;;
-      6) clear_sel; build_plan update
-         if confirm_run; then execute_plan; fi ;;
+      6) run_update_all ;;
       7) menu_mirror ;;
       8) run_repair ;;
       9) verify_install ;;
       10) menu_log ;;
+      11) run_undo ;;
       *) break ;;
     esac
   done
@@ -1224,7 +1395,13 @@ fi
 main() {
   command -v curl >/dev/null 2>&1 || echo "${C_Y}Aviso: curl não encontrado; o teste de espelhos pode falhar.${C_N}"
   new_run
-  splash
-  main_menu
+  case "$ACTION" in # atalhos de linha de comando: pulam o menu
+    tudo)      select_all; run_plan_flow ;;
+    dev)       select_dev; run_plan_flow ;;
+    ia)        select_ia;  run_plan_flow ;;
+    atualizar) run_update_all ;;
+    desfazer)  run_undo ;;
+    *)         splash; main_menu ;;
+  esac
 }
 main "$@"
