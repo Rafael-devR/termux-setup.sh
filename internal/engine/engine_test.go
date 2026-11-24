@@ -26,8 +26,11 @@ func steps(actions ...string) *plan.Plan {
 }
 
 var reg = engine.Registry{
-	"ok":    func(_ context.Context, s *engine.StepCtx) error { s.Logf("tudo certo\rprogresso"); return nil },
-	"fail":  func(_ context.Context, s *engine.StepCtx) error { s.Logf("E: Unable to locate package x"); return errors.New("deu ruim") },
+	"ok": func(_ context.Context, s *engine.StepCtx) error { s.Logf("tudo certo\rprogresso"); return nil },
+	"fail": func(_ context.Context, s *engine.StepCtx) error {
+		s.Logf("E: Unable to locate package x")
+		return errors.New("deu ruim")
+	},
 	"warn":  func(_ context.Context, s *engine.StepCtx) error { s.Warn("cuidado"); s.Unavailable("pkg"); return nil },
 	"panic": func(context.Context, *engine.StepCtx) error { panic("bug") },
 	"slow": func(ctx context.Context, _ *engine.StepCtx) error {

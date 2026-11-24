@@ -22,6 +22,8 @@ type Env struct {
 	LogDir string // logs, resumos e backups
 	Work   string // pasta temporária desta execução
 	DryRun bool   // modo --teste: nada é instalado de verdade
+
+	dryRoot string // modo teste: raiz do Termux de mentira (apagada no fim)
 }
 
 // AptSources é o sources.list do Termux.
@@ -54,7 +56,7 @@ func DetectEnv(dry bool) (*Env, error) {
 		if err != nil {
 			return nil, err
 		}
-		e := &Env{Prefix: filepath.Join(root, "usr"), Home: filepath.Join(root, "home"), DryRun: true}
+		e := &Env{Prefix: filepath.Join(root, "usr"), Home: filepath.Join(root, "home"), DryRun: true, dryRoot: root}
 		if err := os.MkdirAll(e.AptSourcesD(), 0o755); err != nil {
 			return nil, err
 		}
@@ -98,8 +100,14 @@ func (e *Env) finish() (*Env, error) {
 	return e, nil
 }
 
-// Cleanup apaga a pasta temporária da execução.
-func (e *Env) Cleanup() { _ = os.RemoveAll(e.Work) }
+// Cleanup apaga a pasta temporária da execução. No modo teste apaga o
+// Termux de mentira inteiro (TSETUP_MANTER=1 mantém, para inspecionar).
+func (e *Env) Cleanup() {
+	_ = os.RemoveAll(e.Work)
+	if e.dryRoot != "" && os.Getenv("TSETUP_MANTER") != "1" {
+		_ = os.RemoveAll(e.dryRoot)
+	}
+}
 
 // Stamp é o carimbo de data usado nos nomes de log e backup.
 func Stamp(t time.Time) string { return t.Format("20060102-150405") }
