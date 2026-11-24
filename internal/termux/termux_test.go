@@ -127,3 +127,40 @@ func TestOpenCodeCommand(t *testing.T) {
 		t.Fatal(got)
 	}
 }
+
+func TestRemoveLegacyScript(t *testing.T) {
+	e := testutil.Env(t)
+	old := filepath.Join(e.BinDir(), "termux-setup")
+
+	// não tem nada: não faz nada
+	if ok, err := termux.RemoveLegacyScript(e); ok || err != nil {
+		t.Fatal(ok, err)
+	}
+	// um binário (não começa com #!) nunca é apagado
+	testutil.Write(t, old, "\x7fELFbinario")
+	if ok, _ := termux.RemoveLegacyScript(e); ok {
+		t.Fatal("não pode apagar binário")
+	}
+	if testutil.Read(t, old) == "" {
+		t.Fatal("o binário sumiu")
+	}
+	// o script antigo é removido, com cópia nos logs
+	testutil.Write(t, old, "#!/data/data/com.termux/files/usr/bin/bash\n# TERMUX SETUP v5.0\n")
+	if ok, err := termux.RemoveLegacyScript(e); !ok || err != nil {
+		t.Fatal(ok, err)
+	}
+	if _, err := os.Stat(old); err == nil {
+		t.Fatal("o script antigo deveria ter sido removido")
+	}
+	if !strings.Contains(testutil.Read(t, filepath.Join(e.LogDir, "termux-setup-antigo.sh")), "TERMUX SETUP v5.0") {
+		t.Fatal("faltou a cópia de segurança")
+	}
+	// WriteCommands também cuida disso
+	testutil.Write(t, old, "#!/bin/bash\necho velho\n")
+	if err := termux.WriteCommands(e); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(old); err == nil {
+		t.Fatal("WriteCommands deveria remover o script antigo")
+	}
+}

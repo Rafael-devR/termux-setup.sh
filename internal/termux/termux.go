@@ -98,9 +98,46 @@ func writeExec(dir, name string, data []byte) error {
 	return os.WriteFile(filepath.Join(dir, name), data, 0o755)
 }
 
+// RemoveLegacyScript apaga o script bash antigo (v4/v5), que se copiava
+// para ~/bin/termux-setup. Como ~/bin vem antes do $PREFIX/bin no PATH, ele
+// ficaria na frente do programa novo. Só mexe num arquivo de texto com
+// "#!" (nunca num binário nem num link) e guarda uma cópia nos logs.
+// Devolve true se removeu.
+func RemoveLegacyScript(env *sys.Env) (bool, error) {
+	p := filepath.Join(env.BinDir(), "termux-setup")
+	st, err := os.Lstat(p)
+	if err != nil || !st.Mode().IsRegular() {
+		return false, nil
+	}
+	f, err := os.Open(p)
+	if err != nil {
+		return false, err
+	}
+	head := make([]byte, 2)
+	_, _ = io.ReadFull(f, head)
+	f.Close()
+	if string(head) != "#!" {
+		return false, nil
+	}
+	data, err := os.ReadFile(p)
+	if err != nil {
+		return false, err
+	}
+	if err := os.MkdirAll(env.LogDir, 0o755); err != nil {
+		return false, err
+	}
+	if err := os.WriteFile(filepath.Join(env.LogDir, "termux-setup-antigo.sh"), data, 0o755); err != nil {
+		return false, err
+	}
+	return true, os.Remove(p)
+}
+
 // WriteCommands cria atualizar, limpar, info e novo em ~/bin.
 func WriteCommands(env *sys.Env) error {
 	if err := os.MkdirAll(filepath.Join(env.Home, "projetos"), 0o755); err != nil {
+		return err
+	}
+	if _, err := RemoveLegacyScript(env); err != nil {
 		return err
 	}
 	for _, n := range []string{"atualizar", "limpar", "info", "novo"} {
