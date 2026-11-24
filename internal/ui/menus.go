@@ -33,7 +33,7 @@ func MainMenu() *Menu {
 		},
 		OnBack: func(*Ctx) tea.Cmd { return Push(&Outro{}) },
 		Items: []MenuItem{
-			{Key: "1", Label: "Instalação completa (tudo + IA)", Hint: "Todos os módulos, Ubuntu e as 4 IAs.",
+			{Key: "1", Group: "Instalar", Label: "Instalação completa (tudo + IA)", Hint: "Todos os módulos, Ubuntu e as 4 IAs.",
 				Run: func(c *Ctx) tea.Cmd { return StartInstall(c, c.S.Cat.Preset("tudo")) }},
 			{Key: "2", Label: "Dev padrão (recomendado)", Hint: "Linguagens, ferramentas e aparência. Sem Ubuntu.",
 				Run: func(c *Ctx) tea.Cmd { return StartInstall(c, c.S.Cat.Preset("dev")) }},
@@ -47,7 +47,7 @@ func MainMenu() *Menu {
 				Run: func(c *Ctx) tea.Cmd {
 					return Push(NewChecklist("Personalizada", groupIDs(c.S.Cat), c.S.Cat.Preset("dev")))
 				}},
-			{Key: "6", Label: "GitHub (entrar com token)", Hint: "Login do gh por token (o do navegador trava no Termux).",
+			{Key: "6", Group: "Sistema", Label: "GitHub (entrar com token)", Hint: "Login do gh por token (o do navegador trava no Termux).",
 				Run: func(*Ctx) tea.Cmd { return Push(&GitHub{}) }},
 			{Key: "7", Label: "Atualizar tudo (Termux+Ubuntu+IA)", Hint: "Espelho, pacotes, Ubuntu e IAs.",
 				Run: func(c *Ctx) tea.Cmd { return updateAll(c) }},

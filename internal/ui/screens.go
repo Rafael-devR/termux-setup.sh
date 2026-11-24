@@ -186,7 +186,7 @@ func (k *Checklist) View(c *Ctx) string {
 	for i := first; i < min(len(k.rows), first+room); i++ {
 		r := k.rows[i]
 		if strings.HasPrefix(r, "#") {
-			lines = append(lines, " "+grad(c.S.Cat.GroupTitle(r[1:]), 0, true))
+			lines = append(lines, " "+section(c.S.Cat.GroupTitle(r[1:])))
 			continue
 		}
 		m, _ := c.S.Cat.Get(r)
@@ -211,7 +211,10 @@ func (k *Checklist) View(c *Ctx) string {
 		}
 	}
 	if m, ok := c.S.Cat.Get(k.rows[k.cur]); ok {
-		lines = append(lines, " "+paint("› "+fit(m.Description, c.W-4), Dim))
+		lines = append(lines, "")
+		for _, l := range card(c.W-3, Cyan, paint(fit(m.Description, c.W-9), Dim)) {
+			lines = append(lines, " "+l)
+		}
 	}
 	if len(res.Added) > 0 {
 		lines = append(lines, " "+paint("◈ incluído por dependência", Cyan))

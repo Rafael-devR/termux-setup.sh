@@ -70,22 +70,10 @@ func (v *Result) View(c *Ctx) string {
 	lines := append(header(c, "Resultado"), "")
 	// caixa: a borda tem um degradê que gira enquanto anima
 	status := fx.Decrypt(r.Overall, t*2, c.RNG)
-	inner := len([]rune(r.Overall)) + 10
-	border := func(s string, row int) string {
-		var b strings.Builder
-		rs := []rune(s)
-		for i, ch := range rs {
-			k := float64(i)/float64(len(rs)) + float64(c.Frame)/40 + float64(row)*0.1
-			k -= float64(int(k))
-			cc := fx.Lerp(Grad.At(k), col, t)
-			b.WriteString(paint(string(ch), cc))
-		}
-		return b.String()
+	for _, l := range card(c.W-3, col, bold(icon+"  "+status, col)) {
+		lines = append(lines, " "+l)
 	}
-	lines = append(lines,
-		" "+border("╭"+strings.Repeat("─", inner)+"╮", 0),
-		" "+border("│", 1)+"  "+bold(icon, col)+"  "+bold(pad(status, inner-5), col)+border("│", 1),
-		" "+border("╰"+strings.Repeat("─", inner)+"╯", 2), "")
+	lines = append(lines, "")
 	count := func(n int) string { return itoa(int(float64(n) * min(1, t*1.5))) }
 	lines = append(lines, " "+bold("✓ "+count(r.NOK)+" ok", Green)+"   "+bold("✗ "+count(r.NFailed)+" falhas", Red)+"   "+bold("· "+count(r.NPending)+" pendentes", Yellow))
 	lines = append(lines, " "+paint("tempo ", Dim)+bold(mmss(int(r.Elapsed().Seconds())), White)+paint(fmt.Sprintf(" · +%d MB · livre %s", r.UsedMB(), humanMB(r.FreeAfter)), Dim))
