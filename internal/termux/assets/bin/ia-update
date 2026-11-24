@@ -1,0 +1,3 @@
+#!/data/data/com.termux/files/usr/bin/bash
+# Atualiza o Ubuntu (pacotes + limpeza) e as IAs (Claude, Codex, Gemini).
+exec termux-setup ubuntu-atualizar --sim

@@ -1,0 +1,15 @@
+# Ferramenta do termux-setup. Formato: docs/MODULOS.md
+
+id = "term"
+name = "Terminal: eza + zoxide"
+description = "ls colorido (eza) e \"z pasta\" para pular de pasta."
+group = "termux"
+order = 100
+packages = ["zoxide", "eza"]
+presets = ["dev", "tudo"]
+verify = ["eza --version"]
+
+[estimate]  # aproximado, base arm64
+seconds = 12
+download_mb = 12
+disk_mb = 30

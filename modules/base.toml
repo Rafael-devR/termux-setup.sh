@@ -1,0 +1,15 @@
+# Ferramenta do termux-setup. Formato: docs/MODULOS.md
+
+id = "base"
+name = "Base: git ssh vim zip"
+description = "O essencial: git, curl, ssh, editores e utilitários."
+group = "termux"
+order = 10
+packages = ["git", "curl", "wget", "nano", "vim", "openssh", "zip", "unzip", "tar", "which", "man", "termux-tools", "termux-exec", "findutils", "grep", "sed", "file", "tree", "less"]
+presets = ["dev", "ia", "tudo"]
+verify = ["git --version", "curl --version", "ssh -V"]
+
+[estimate]  # aproximado, base arm64
+seconds = 12
+download_mb = 6
+disk_mb = 25

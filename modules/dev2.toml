@@ -1,0 +1,15 @@
+# Ferramenta do termux-setup. Formato: docs/MODULOS.md
+
+id = "dev2"
+name = "Dev+: gh lazygit neovim"
+description = "GitHub CLI, git visual e Neovim."
+group = "termux"
+order = 110
+packages = ["gh", "lazygit", "neovim"]
+presets = ["dev", "tudo"]
+verify = ["gh --version", "nvim --version"]
+
+[estimate]  # aproximado, base arm64
+seconds = 40
+download_mb = 60
+disk_mb = 200

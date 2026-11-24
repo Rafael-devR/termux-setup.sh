@@ -1,0 +1,19 @@
+# Ferramenta do termux-setup. Formato: docs/MODULOS.md
+
+id = "root"
+name = "Root: tsu (só com root)"
+description = "Só para aparelhos com root."
+group = "sistema"
+order = 500
+target = "none"
+presets = []
+
+[estimate]  # aproximado, base arm64
+seconds = 12
+download_mb = 2
+disk_mb = 5
+
+[[steps]]
+label = "Root: tsu"
+action = "root-tsu"
+seconds = 12

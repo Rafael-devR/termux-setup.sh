@@ -1,0 +1,22 @@
+# Ferramenta do termux-setup. Formato: docs/MODULOS.md
+
+id = "ubpy"
+name = "Ubuntu: Python 3 + pip + venv"
+description = "Python no Ubuntu, com ~/venv (o Ubuntu novo bloqueia pip global)."
+group = "ubuntu"
+order = 230
+target = "ubuntu"
+packages = ["python3", "python3-pip", "python3-venv", "python3-dev", "pipx"]
+requires = ["ubuntu"]
+presets = ["ubuntu", "tudo"]
+verify = ["python3 --version"]
+
+[estimate]  # aproximado, base arm64
+seconds = 40
+download_mb = 40
+disk_mb = 180
+
+[[steps]]
+label = "Ubuntu: venv do Python"
+action = "ubuntu-pyvenv"
+seconds = 15

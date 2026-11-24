@@ -1,0 +1,24 @@
+# Seções dos menus, na ordem em que aparecem.
+[[group]]
+id = "termux"
+title = "Termux · ferramentas"
+
+[[group]]
+id = "linguagens"
+title = "Termux · linguagens"
+
+[[group]]
+id = "ubuntu"
+title = "Ubuntu (proot)"
+
+[[group]]
+id = "ia"
+title = "Inteligência artificial"
+
+[[group]]
+id = "aparencia"
+title = "Aparência"
+
+[[group]]
+id = "sistema"
+title = "Sistema"

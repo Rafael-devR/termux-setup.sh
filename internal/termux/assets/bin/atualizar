@@ -1,0 +1,3 @@
+#!/data/data/com.termux/files/usr/bin/bash
+# Atualiza tudo (Termux + Ubuntu + IAs) sem abrir o menu.
+exec termux-setup atualizar --sim

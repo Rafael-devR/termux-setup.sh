@@ -1,0 +1,4 @@
+/termux-setup
+/dist/
+*.test
+*.out

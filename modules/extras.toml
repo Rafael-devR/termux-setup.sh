@@ -1,0 +1,15 @@
+# Ferramenta do termux-setup. Formato: docs/MODULOS.md
+
+id = "extras"
+name = "Extras: tmux jq rg htop"
+description = "Utilitários do dia a dia."
+group = "termux"
+order = 90
+packages = ["htop", "fastfetch|neofetch", "tmux", "jq", "ripgrep", "fd", "bat", "fzf", "ncdu", "zsh"]
+presets = ["dev", "tudo"]
+verify = ["tmux -V", "jq --version", "rg --version"]
+
+[estimate]  # aproximado, base arm64
+seconds = 40
+download_mb = 11
+disk_mb = 42

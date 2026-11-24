@@ -1,0 +1,28 @@
+# Ferramenta do termux-setup. Formato: docs/MODULOS.md
+
+id = "gemini"
+name = "Gemini CLI (Google)"
+description = "CLI do Google via npm, dentro do Ubuntu."
+group = "ia"
+order = 320
+target = "none"
+requires = ["ubuntu", "ubnode"]
+presets = ["ia", "tudo"]
+verify = ["gemini --version"]
+verify_in = "ubuntu"
+
+[estimate]  # aproximado, base arm64
+seconds = 35
+download_mb = 80
+disk_mb = 250
+
+[[steps]]
+label = "Gemini CLI (Google)"
+action = "ub-npm"
+args = ["@google/gemini-cli"]
+seconds = 35
+
+[[finalize]]
+label = "Criar comandos ubuntu / ia-run"
+action = "ub-commands"
+seconds = 1

@@ -1,0 +1,14 @@
+# Ferramenta do termux-setup. Formato: docs/MODULOS.md
+
+id = "net"
+name = "Rede: nmap rsync netcat"
+description = "Ferramentas de rede."
+group = "termux"
+order = 80
+packages = ["nmap", "sshpass", "netcat-openbsd", "dnsutils", "traceroute", "net-tools", "rsync"]
+presets = ["tudo"]
+
+[estimate]  # aproximado, base arm64
+seconds = 40
+download_mb = 9
+disk_mb = 44

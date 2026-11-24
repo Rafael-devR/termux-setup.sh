@@ -1,0 +1,20 @@
+# Ferramenta do termux-setup. Formato: docs/MODULOS.md
+
+id = "python"
+name = "Python + pip + venv"
+description = "Python 3 com um ambiente virtual pronto em ~/venv."
+group = "linguagens"
+order = 30
+packages = ["python", "python-pip"]
+presets = ["dev", "tudo"]
+verify = ["python --version", "pip --version"]
+
+[estimate]  # aproximado, base arm64
+seconds = 20
+download_mb = 35
+disk_mb = 150
+
+[[steps]]
+label = "Python: venv + libs"
+action = "termux-pyvenv"
+seconds = 25

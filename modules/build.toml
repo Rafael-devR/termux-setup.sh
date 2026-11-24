@@ -1,0 +1,15 @@
+# Ferramenta do termux-setup. Formato: docs/MODULOS.md
+
+id = "build"
+name = "Compiladores: clang make cmake"
+description = "Para compilar código C/C++ e pacotes nativos."
+group = "linguagens"
+order = 20
+packages = ["clang", "make", "cmake", "pkg-config", "binutils", "autoconf", "automake", "libtool", "ninja", "patch", "libffi", "openssl", "libxml2", "libxslt", "libjpeg-turbo", "libpng", "zlib"]
+presets = ["dev", "tudo"]
+verify = ["clang --version", "cmake --version"]
+
+[estimate]  # aproximado, base arm64
+seconds = 45
+download_mb = 70
+disk_mb = 400

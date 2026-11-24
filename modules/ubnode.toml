@@ -1,0 +1,21 @@
+# Ferramenta do termux-setup. Formato: docs/MODULOS.md
+
+id = "ubnode"
+name = "Ubuntu: Node.js LTS + npm"
+description = "Node.js oficial (NodeSource). Codex e Gemini precisam dele."
+group = "ubuntu"
+order = 240
+target = "ubuntu"
+requires = ["ubuntu"]
+presets = ["ubuntu", "tudo"]
+verify = ["node --version", "npm --version"]
+
+[estimate]  # aproximado, base arm64
+seconds = 45
+download_mb = 30
+disk_mb = 150
+
+[[steps]]
+label = "Ubuntu: Node.js LTS"
+action = "ubuntu-node"
+seconds = 45

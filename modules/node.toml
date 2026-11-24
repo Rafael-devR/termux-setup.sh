@@ -1,0 +1,21 @@
+# Ferramenta do termux-setup. Formato: docs/MODULOS.md
+
+id = "node"
+name = "Node.js LTS + yarn + tsc"
+description = "Node.js com yarn e TypeScript globais."
+group = "linguagens"
+order = 40
+packages = ["nodejs-lts|nodejs"]
+presets = ["dev", "tudo"]
+verify = ["node --version", "npm --version"]
+
+[estimate]  # aproximado, base arm64
+seconds = 25
+download_mb = 12
+disk_mb = 60
+
+[[steps]]
+label = "Node: yarn + typescript"
+action = "npm-global"
+args = ["yarn", "typescript"]
+seconds = 15

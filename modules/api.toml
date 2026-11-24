@@ -1,0 +1,14 @@
+# Ferramenta do termux-setup. Formato: docs/MODULOS.md
+
+id = "api"
+name = "Termux:API (notificações)"
+description = "Notificações e vibração (precisa do app Termux:API)."
+group = "termux"
+order = 120
+packages = ["termux-api"]
+presets = ["dev", "ia", "tudo"]
+
+[estimate]  # aproximado, base arm64
+seconds = 6
+download_mb = 1
+disk_mb = 1
