@@ -1,0 +1,17 @@
+# Ferramenta do termux-setup. Formato: docs/MODULOS.md
+
+id = "ubbuild"
+name = "Ubuntu: C/C++ (gcc make cmake gdb)"
+description = "Compiladores dentro do Ubuntu."
+group = "ubuntu"
+order = 220
+target = "ubuntu"
+packages = ["build-essential", "cmake", "gdb", "pkg-config", "autoconf", "automake", "libtool", "ninja-build", "libssl-dev", "libffi-dev", "zlib1g-dev"]
+requires = ["ubuntu"]
+presets = ["ubuntu", "tudo"]
+verify = ["gcc --version", "cmake --version"]
+
+[estimate]  # aproximado, base arm64
+seconds = 60
+download_mb = 80
+disk_mb = 350

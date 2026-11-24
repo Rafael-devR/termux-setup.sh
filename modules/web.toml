@@ -1,0 +1,15 @@
+# Ferramenta do termux-setup. Formato: docs/MODULOS.md
+
+id = "web"
+name = "Ruby + Perl"
+description = "Linguagens de script."
+group = "linguagens"
+order = 60
+packages = ["ruby", "perl"]
+presets = ["tudo"]
+verify = ["ruby --version"]
+
+[estimate]  # aproximado, base arm64
+seconds = 35
+download_mb = 45
+disk_mb = 170

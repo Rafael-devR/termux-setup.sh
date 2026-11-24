@@ -1,0 +1,24 @@
+# Ferramenta do termux-setup. Formato: docs/MODULOS.md
+
+id = "keys"
+name = "Barra de teclas personalizada"
+description = "Atalhos para claude, codex, gemini, ubuntu e git."
+group = "aparencia"
+order = 430
+target = "none"
+presets = ["dev", "tudo"]
+
+[estimate]  # aproximado, base arm64
+seconds = 1
+download_mb = 0
+disk_mb = 0
+
+[[steps]]
+label = "Barra de teclas"
+action = "keys"
+seconds = 1
+
+[[finalize]]
+label = "Aplicar aparência"
+action = "reload-settings"
+seconds = 1

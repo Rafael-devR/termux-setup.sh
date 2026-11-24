@@ -1,0 +1,46 @@
+name: Release
+
+# Publica os binários de duas formas:
+#   1. enviando uma tag:   git tag v6.0.0 && git push origin v6.0.0
+#   2. pela aba Actions:   Release → Run workflow → versão "v6.0.0"
+#      (cria a tag no commit escolhido e publica a release)
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      versao:
+        description: "Versão a publicar (ex.: v6.0.0)"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    env:
+      VERSAO: ${{ inputs.versao || github.ref_name }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+      - name: Conferir a versão
+        run: |
+          if ! [[ "$VERSAO" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$ ]]; then
+            echo "versão inválida: $VERSAO (use vX.Y.Z)"; exit 1
+          fi
+      - name: Testes
+        run: go test ./...
+      - name: Compilar
+        run: scripts/build-release.sh "$VERSAO"
+      - name: Publicar
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.VERSAO }}
+          target_commitish: ${{ github.sha }}
+          files: |
+            dist/*.tar.gz
+            dist/checksums.txt
+          generate_release_notes: true

@@ -1,0 +1,10 @@
+#!/data/data/com.termux/files/usr/bin/bash
+echo "== Termux =="
+echo "Arq: $(uname -m) | Android $(getprop ro.build.version.release) | $(getprop ro.product.model)"
+echo "Espelho: $(grep -hE '^(deb |URIs:)' "$PREFIX"/etc/apt/sources.list "$PREFIX"/etc/apt/sources.list.d/*.sources 2>/dev/null | head -n1)"
+df -h "$HOME" | tail -n1
+for c in python node java clang git; do
+  command -v "$c" >/dev/null 2>&1 || continue
+  if [ "$c" = java ]; then v="$(java -version 2>&1 | head -n1)"; else v="$($c --version 2>&1 | head -n1)"; fi
+  printf '  %-7s %s\n' "$c" "$v"
+done

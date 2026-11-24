@@ -1,0 +1,17 @@
+# Ferramenta do termux-setup. Formato: docs/MODULOS.md
+
+id = "ubjava"
+name = "Ubuntu: Java 21 (JDK) + maven"
+description = "JDK headless no Ubuntu."
+group = "ubuntu"
+order = 250
+target = "ubuntu"
+packages = ["openjdk-21-jdk-headless|openjdk-17-jdk-headless", "maven"]
+requires = ["ubuntu"]
+presets = ["ubuntu", "tudo"]
+verify = ["java -version"]
+
+[estimate]  # aproximado, base arm64
+seconds = 90
+download_mb = 180
+disk_mb = 400

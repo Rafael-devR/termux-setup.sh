@@ -1,0 +1,17 @@
+# Ferramenta do termux-setup. Formato: docs/MODULOS.md
+
+id = "ubtools"
+name = "Ubuntu: ferramentas (git jq rg htop)"
+description = "Utilitários dentro do Ubuntu."
+group = "ubuntu"
+order = 210
+target = "ubuntu"
+packages = ["git", "curl", "wget", "zip", "unzip", "jq", "ripgrep", "fd-find", "htop", "tmux", "vim", "nano", "tree", "less", "file", "openssh-client", "sqlite3", "rsync"]
+requires = ["ubuntu"]
+presets = ["ia", "ubuntu", "tudo"]
+verify = ["git --version", "rg --version"]
+
+[estimate]  # aproximado, base arm64
+seconds = 30
+download_mb = 25
+disk_mb = 90

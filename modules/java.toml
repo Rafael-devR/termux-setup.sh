@@ -1,0 +1,15 @@
+# Ferramenta do termux-setup. Formato: docs/MODULOS.md
+
+id = "java"
+name = "Java 21 + gradle + maven"
+description = "JDK (21, ou 17 se o 21 não existir) com gradle e maven."
+group = "linguagens"
+order = 50
+packages = ["openjdk-21|openjdk-17", "gradle", "maven"]
+presets = ["tudo"]
+verify = ["java -version"]
+
+[estimate]  # aproximado, base arm64
+seconds = 120
+download_mb = 280
+disk_mb = 460

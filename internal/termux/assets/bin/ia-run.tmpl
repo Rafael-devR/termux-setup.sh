@@ -1,0 +1,15 @@
+#!/data/data/com.termux/files/usr/bin/bash
+# uso: ia-run <comando> [args] — roda no Ubuntu (usuário {{.User}}) na pasta atual do Termux.
+# A pasta atual do Termux é "emprestada" ao Ubuntu e aparece lá como /work/<nome-da-pasta>:
+# os arquivos são os MESMOS (o que a IA editar lá, muda aqui).
+HOST_DIR="$PWD"
+NAME="$(basename "$HOST_DIR")"
+case "$NAME" in ""|"/") NAME="raiz" ;; esac
+NAME="${NAME// /_}"
+DEST="/work/$NAME"
+command -v termux-wake-lock >/dev/null 2>&1 && termux-wake-lock 2>/dev/null
+proot-distro login {{.Distro}} --user {{.User}} --bind "$HOST_DIR:$DEST" --work-dir "$DEST" \
+  -- bash -lc 'exec "$@"' _ "$@"
+rc=$?
+command -v termux-wake-unlock >/dev/null 2>&1 && termux-wake-unlock 2>/dev/null
+exit $rc

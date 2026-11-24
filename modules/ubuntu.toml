@@ -1,0 +1,30 @@
+# Ferramenta do termux-setup. Formato: docs/MODULOS.md
+
+id = "ubuntu"
+name = "Ubuntu LTS (proot)"
+description = "Um Ubuntu de verdade dentro do Termux, com usuário comum (dev)."
+group = "ubuntu"
+order = 200
+packages = ["proot", "proot-distro"]
+packages_label = "Ubuntu: proot-distro"
+presets = ["ia", "ubuntu", "tudo"]
+
+[estimate]  # aproximado, base arm64
+seconds = 200
+download_mb = 160
+disk_mb = 500
+
+[[steps]]
+label = "Ubuntu: instalar"
+action = "ubuntu-install"
+seconds = 90
+
+[[steps]]
+label = "Ubuntu: base + usuário"
+action = "ubuntu-base"
+seconds = 60
+
+[[finalize]]
+label = "Criar comandos ubuntu / ia-run"
+action = "ub-commands"
+seconds = 1

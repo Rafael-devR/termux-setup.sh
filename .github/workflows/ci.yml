@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  teste:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+      - name: Formatação (gofmt)
+        run: test -z "$(gofmt -l . | tee /dev/stderr)"
+      - name: go vet
+        run: go vet ./...
+      - name: Testes (com detector de corrida)
+        run: go test -race -coverprofile=cover.out ./...
+      - name: Cobertura
+        run: go tool cover -func=cover.out | tail -n 1
+      - name: Vulnerabilidades (govulncheck)
+        run: go run golang.org/x/vuln/cmd/govulncheck@latest ./...
+      - name: Shellcheck (instalador, scripts e scripts do Ubuntu)
+        run: |
+          shellcheck -S warning install.sh scripts/*.sh
+          shellcheck -s bash -S warning internal/ubuntu/scripts/*.sh
+      - name: Simulação de ponta a ponta (modo texto)
+        run: |
+          go build -o termux-setup ./cmd/termux-setup
+          ./termux-setup tudo --teste --sim
+          ./termux-setup desfazer --teste --sim
+          ./termux-setup modulos --teste
+
+  compilar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+      # Só confere que os 4 alvos compilam. Os binários não são enviados
+      # como artefato (gastaria a cota de armazenamento do Actions); eles
+      # saem publicados na release, ao enviar uma tag vX.Y.Z.
+      - name: Compilar todos os alvos
+        run: scripts/build-release.sh "ci-${GITHUB_SHA::7}"

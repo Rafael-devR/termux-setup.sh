@@ -1,0 +1,28 @@
+# Ferramenta do termux-setup. Formato: docs/MODULOS.md
+
+id = "claude"
+name = "Claude Code (oficial)"
+description = "Instalador oficial da Anthropic, dentro do Ubuntu. Precisa de 4 GB de RAM."
+group = "ia"
+order = 300
+target = "none"
+requires = ["ubuntu"]
+arch = ["aarch64", "x86_64"]  # 64 bits
+presets = ["ia", "tudo"]
+verify = ["claude --version"]
+verify_in = "ubuntu"
+
+[estimate]  # aproximado, base arm64
+seconds = 50
+download_mb = 270
+disk_mb = 300
+
+[[steps]]
+label = "Claude Code (oficial)"
+action = "claude-install"
+seconds = 50
+
+[[finalize]]
+label = "Criar comandos ubuntu / ia-run"
+action = "ub-commands"
+seconds = 1

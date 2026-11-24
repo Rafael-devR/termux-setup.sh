@@ -1,0 +1,13 @@
+#!/data/data/com.termux/files/usr/bin/bash
+# uso: novo <nome> [python|node|c]   (cria em ~/projetos)
+n="$1"; t="${2:-python}"
+[ -z "$n" ] && { echo "uso: novo <nome> [python|node|c]"; exit 1; }
+mkdir -p "$HOME/projetos/$n" && cd "$HOME/projetos/$n" || exit 1
+git init -q 2>/dev/null
+case "$t" in
+  python) echo 'print("olá, Termux!")' > main.py ;;
+  node)   echo 'console.log("olá, Termux!")' > index.js; npm init -y >/dev/null 2>&1 ;;
+  c)      printf '#include <stdio.h>\nint main(){puts("ola, Termux!");return 0;}\n' > main.c ;;
+esac
+echo "# $n" > README.md
+echo "✓ Projeto criado em $(pwd)"

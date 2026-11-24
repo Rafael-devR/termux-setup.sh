@@ -1,0 +1,15 @@
+# Ferramenta do termux-setup. Formato: docs/MODULOS.md
+
+id = "db"
+name = "SQLite + Redis"
+description = "Bancos de dados leves."
+group = "termux"
+order = 70
+packages = ["sqlite", "redis"]
+presets = ["tudo"]
+verify = ["sqlite3 --version"]
+
+[estimate]  # aproximado, base arm64
+seconds = 15
+download_mb = 2
+disk_mb = 6
