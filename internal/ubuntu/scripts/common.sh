@@ -9,3 +9,15 @@ fetch_check() {
 export DEBIAN_FRONTEND=noninteractive
 # shellcheck disable=SC2034 # usado pelos outros scripts
 APT_O="-y -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold"
+
+# npm_global PACOTE...: instala/atualiza pacotes npm globais.
+# Dentro do proot o Node pode se achar "android" (process.platform). Aí o
+# npm recusa pacotes que só listam linux/darwin/win32 (EBADPLATFORM) e, pior,
+# pula os binários por plataforma (opencode-linux-arm64, codex-linux-arm64):
+# o pacote "instala" mas fica sem o programa. O Ubuntu é linux de verdade,
+# então pedimos --os=linux; se o npm ainda recusar, repete com --force.
+npm_global() {
+  npm install -g --os=linux "$@" && return 0
+  echo "[aviso] npm recusou a plataforma; tentando de novo com --force"
+  npm install -g --force --os=linux "$@"
+}

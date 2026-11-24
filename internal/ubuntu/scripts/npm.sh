@@ -4,4 +4,4 @@ set -e
 mkdir -p ~/.npm-global
 npm config set prefix ~/.npm-global
 export PATH="$HOME/.npm-global/bin:$PATH"
-npm install -g "$PKG"
+npm_global "$PKG"

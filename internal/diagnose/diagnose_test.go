@@ -13,6 +13,9 @@ func TestHints(t *testing.T) {
 			t.Errorf("faltou %q em %q", want, h)
 		}
 	}
+	if h := Hints("npm error code EBADPLATFORM"); len(h) != 1 || !strings.Contains(h[0], "npm") {
+		t.Fatal(h)
+	}
 	if len(Hints("tudo certo")) != 0 {
 		t.Fatal("log limpo não deveria ter dicas")
 	}
