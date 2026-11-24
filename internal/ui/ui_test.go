@@ -200,14 +200,14 @@ func TestRootModelNavigates(t *testing.T) {
 	m := New(s, MainMenu(), false)
 	m.Init()
 	m.Update(tea.WindowSizeMsg{Width: 46, Height: 34})
-	if v := ansi.Strip(m.View().Content); !strings.Contains(v, "MENU PRINCIPAL") {
+	if v := ansi.Strip(m.View().Content); !strings.Contains(v, "Menu principal") {
 		t.Fatal(v)
 	}
 	_, cmd := m.Update(key("3"))
 	for _, msg := range run(cmd) {
 		m.Update(msg)
 	}
-	if v := ansi.Strip(m.View().Content); !strings.Contains(v, "UBUNTU & IA") {
+	if v := ansi.Strip(m.View().Content); !strings.Contains(v, "Ubuntu & IA") {
 		t.Fatal(v)
 	}
 	m.Update(popMsg{})
@@ -233,5 +233,25 @@ func TestIntroSkipsOnKey(t *testing.T) {
 		t.Fatal(msgs)
 	} else if _, ok := msgs[0].(replaceMsg); !ok {
 		t.Fatalf("%#v", msgs[0])
+	}
+}
+
+// O painel é centralizado (até MaxW colunas) e a tela inteira é preenchida:
+// toda linha tem exatamente a largura do terminal e há uma por linha da tela.
+func TestComposeFillsTerminal(t *testing.T) {
+	s := services(t, false)
+	for _, sz := range [][2]int{{46, 34}, {100, 36}, {160, 50}} {
+		m := New(s, MainMenu(), false)
+		m.Init()
+		m.Update(tea.WindowSizeMsg{Width: sz[0], Height: sz[1]})
+		lines := strings.Split(m.View().Content, "\n")
+		if len(lines) != sz[1] {
+			t.Fatalf("%v: %d linhas", sz, len(lines))
+		}
+		for i, l := range lines {
+			if w := ansi.StringWidth(l); w != sz[0] {
+				t.Fatalf("%v: linha %d com %d colunas", sz, i, w)
+			}
+		}
 	}
 }

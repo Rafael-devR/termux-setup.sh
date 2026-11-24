@@ -23,6 +23,13 @@ var (
 	Accent = fx.Hex("#FF3EC8")
 	Cyan   = fx.Hex("#00F0FF")
 	SelBG  = fx.Hex("#1B1F2E")
+	// Superfícies (estilo OpenCode): sem bordas de caixa, só camadas de fundo.
+	BG     = fx.Hex("#0A0C12") // fundo da tela
+	Panel  = fx.Hex("#12151D") // painel / diálogo
+	Raised = fx.Hex("#1B202C") // cartão sobre o painel
+	Select = fx.Hex("#62D0FF") // linha selecionada (preenchida)
+	Ink    = fx.Hex("#0A0C12") // texto escuro sobre Select
+	Purple = fx.Hex("#A78BFA") // títulos de seção
 	Matrix = fx.Hex("#1FE07A")
 )
 
@@ -95,41 +102,80 @@ func pad(s string, w int) string {
 	return s
 }
 
-// band é uma linha com fundo destacado de largura w (item selecionado).
-func band(s string, w int) string {
+// fill pinta o fundo bg numa linha inteira de largura w, mantendo o fundo
+// depois de cada código de cor que a linha já traga.
+func fill(s string, w int, bg fx.Color) string {
 	// todo código de cor começa com "\x1b[0" (reset): enxerta o fundo em
-	// cada um, senão cada trecho colorido apagaria o destaque
-	bgCode := fmt.Sprintf("\x1b[0;48;2;%d;%d;%d", SelBG.R, SelBG.G, SelBG.B)
-	line := sgr(fx.Color{}, SelBG, false) + pad(fit(s, w), w)
+	// cada um, senão cada trecho colorido apagaria o fundo
+	bgCode := fmt.Sprintf("\x1b[0;48;2;%d;%d;%d", bg.R, bg.G, bg.B)
+	s = strings.ReplaceAll(pad(fit(s, w), w), "\x1b[m", "\x1b[0m") // reset curto → longo
+	line := sgr(fx.Color{}, bg, false) + s
 	return strings.ReplaceAll(line, "\x1b[0", bgCode) + reset
 }
 
-// header são as 2 linhas do topo de toda tela.
-func header(c *Ctx, title string) []string {
-	brand := paint("◈ ", Cyan) + grad("TERMUX", 0, true) + paint("//", Faint) + bold("SETUP", White) + " " + paint(app.Version, Faint)
-	if c.S != nil && c.S.Env.DryRun {
-		brand += "  " + bold("TESTE", Yellow)
-	}
-	t := strings.ToUpper(title)
-	n := max(2, c.W-width(t)-6)
-	rule := gradRev(strings.Repeat("━", n))
-	return []string{" " + fit(brand, c.W-1), " " + paint("━━", Cyan) + " " + bold(t, White) + " " + rule}
+// band é a linha selecionada: preenchida de ponta a ponta com a cor de
+// destaque e texto escuro (como a paleta de comandos do OpenCode).
+func band(s string, w int) string {
+	plain := strings.TrimLeft(ansi.Strip(s), "▌ ")
+	return sgr(Ink, Select, true) + pad(fit("  "+plain, w), w) + reset
 }
 
-// footer é a linha de dicas de teclas; as dicas que não cabem em w saem.
+// section é o título de um grupo de itens.
+func section(s string) string { return bold(s, Purple) }
+
+// tag alinha um rótulo discreto à direita de uma linha de largura w.
+func tag(left, right string, w int) string {
+	gap := w - width(left) - width(right) - 1
+	if gap < 1 {
+		return fit(left, w)
+	}
+	return left + strings.Repeat(" ", gap) + right
+}
+
+// card é um bloco com barra de destaque à esquerda e fundo elevado, com a
+// borda de baixo em meio-bloco (o "┃ … ╹▀▀▀" do OpenCode).
+func card(w int, accent fx.Color, lines ...string) []string {
+	out := []string{}
+	for _, l := range lines {
+		out = append(out, paint("┃", accent)+fill("  "+l, w-1, Raised))
+	}
+	out = append(out, paint("╹", accent)+paint(strings.Repeat("▀", max(0, w-1)), Raised))
+	return out
+}
+
+// Marcadores invisíveis que o compositor (app.View) usa para achar o
+// painel: header marca o início, footer marca o fim.
+const (
+	markHead = "\x00H"
+	markFoot = "\x00F"
+)
+
+// header são as 2 linhas do topo de toda tela: a marca e o título do painel.
+func header(c *Ctx, title string) []string {
+	brand := paint("termux", Dim) + bold("setup", White) + " " + paint(app.Version, Faint)
+	if c.S != nil && c.S.Env.DryRun {
+		brand += "  " + sgr(Ink, Yellow, true) + " TESTE " + reset
+	}
+	return []string{" " + fit(brand, c.W-1), markHead + bold(title, White)}
+}
+
+// footer são as dicas de teclas ("tecla rótulo"), alinhadas à direita; as
+// que não cabem em w saem pelo fim.
 func footer(w int, hints ...string) string {
-	out := ""
-	for i, h := range hints {
-		part := paint(h, Faint)
-		if i > 0 {
-			part = paint(" · ", Ghost) + part
-		}
-		if width(out)+width(part)+1 > w {
+	var parts []string
+	total := 0
+	for _, h := range hints {
+		k, label, _ := strings.Cut(h, " ")
+		part := bold(k, White) + " " + paint(label, Dim)
+		pw := width(part) + 2
+		if total+pw > w-1 {
 			break
 		}
-		out += part
+		parts = append(parts, part)
+		total += pw
 	}
-	return " " + out
+	line := strings.Join(parts, "  ")
+	return markFoot + strings.Repeat(" ", max(0, w-width(line)-1)) + line
 }
 
 func mmss(sec int) string { return fmt.Sprintf("%02d:%02d", sec/60, sec%60) }

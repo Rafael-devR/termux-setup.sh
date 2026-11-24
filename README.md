@@ -29,6 +29,7 @@ termux-setup dev             # dev padrão (com perguntas e confirmação)
 termux-setup dev --sim       # dev padrão, sem perguntas
 termux-setup instalar python node ubpy
 termux-setup atualizar       # Termux + Ubuntu + IAs
+termux-setup atualizar-app   # atualiza o próprio termux-setup (o app também avisa no menu quando há versão nova; tecla u)
 termux-setup verificar       # versões instaladas
 termux-setup desfazer        # volta espelho, aparência e .bashrc
 termux-setup modulos         # lista tudo que dá para instalar

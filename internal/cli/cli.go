@@ -134,6 +134,8 @@ com --sim não fazem nenhuma pergunta.`,
 			RunE: func(cmd *cobra.Command, _ []string) error { return runFixed(cmd, f, plan.Undo()) }},
 		&cobra.Command{Use: "verificar", Short: "Mostra as versões instaladas", Args: cobra.NoArgs,
 			RunE: func(cmd *cobra.Command, _ []string) error { return verify(cmd, f) }},
+		&cobra.Command{Use: "atualizar-app", Short: "Atualiza o próprio termux-setup (procura versão nova no GitHub)", Args: cobra.NoArgs,
+			RunE: func(cmd *cobra.Command, _ []string) error { return selfUpdate(cmd, f) }},
 		&cobra.Command{Use: "modulos", Aliases: []string{"listar"}, Short: "Lista os módulos do catálogo", Args: cobra.NoArgs,
 			RunE: func(cmd *cobra.Command, _ []string) error { return listModules(cmd, f) }},
 	)
@@ -324,5 +326,30 @@ func listModules(cmd *cobra.Command, f *flags) error {
 			fmt.Fprintf(out, "  %-8s %s%s\n", m.ID, m.Name, extra)
 		}
 	}
+	return nil
+}
+
+// selfUpdate procura e instala a versão nova do próprio programa.
+func selfUpdate(cmd *cobra.Command, f *flags) error {
+	s, err := services(f)
+	if err != nil {
+		return err
+	}
+	defer s.Close()
+	out := cmd.OutOrStdout()
+	ctx := context.Background()
+	v, err := s.Updater.Check(ctx, true)
+	if err != nil {
+		return fmt.Errorf("não consegui consultar o GitHub: %w", err)
+	}
+	if v == "" {
+		fmt.Fprintf(out, "Você já está na versão mais nova (%s).\n", s.Updater.Current)
+		return nil
+	}
+	fmt.Fprintf(out, "Nova versão: %s (você usa %s)\n", v, s.Updater.Current)
+	if err := s.Updater.Apply(ctx, v, func(m string) { fmt.Fprintln(out, " ", m) }); err != nil {
+		return err
+	}
+	fmt.Fprintf(out, "Atualizado para %s. Abra o termux-setup de novo.\n", v)
 	return nil
 }

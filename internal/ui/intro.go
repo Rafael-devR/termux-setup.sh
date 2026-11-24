@@ -40,7 +40,8 @@ const (
 	tEnd     = 150
 )
 
-func (in *Intro) NoReveal() {}
+func (in *Intro) NoReveal()   {}
+func (in *Intro) FullScreen() {}
 
 func (in *Intro) Init(c *Ctx) tea.Cmd {
 	if !c.S.Anim {
@@ -205,7 +206,8 @@ type Outro struct {
 	base  []string
 }
 
-func (o *Outro) NoReveal() {}
+func (o *Outro) NoReveal()   {}
+func (o *Outro) FullScreen() {}
 func (o *Outro) Init(c *Ctx) tea.Cmd {
 	if !c.S.Anim {
 		return tea.Quit

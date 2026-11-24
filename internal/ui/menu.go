@@ -5,11 +5,13 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/Rafael-devR/termux-setup.sh/internal/ui/fx"
+	"github.com/charmbracelet/x/ansi"
 )
 
 // MenuItem é uma opção do menu.
 type MenuItem struct {
 	Key   string // atalho ("1", "v"...)
+	Group string // título da seção (aparece antes do 1º item do grupo)
 	Label string
 	Hint  string // descrição mostrada embaixo quando selecionado
 	Run   func(c *Ctx) tea.Cmd
@@ -70,37 +72,60 @@ func (m *Menu) Update(c *Ctx, msg tea.Msg) (Screen, tea.Cmd) {
 
 func (m *Menu) View(c *Ctx) string {
 	lines := header(c, m.Title)
+	lines = append(lines, "")
 	if m.Pre != nil {
 		for _, l := range m.Pre(c) {
-			lines = append(lines, fit(" "+l, c.W))
+			lines = append(lines, fit("  "+l, c.W))
 		}
+		lines = append(lines, "")
 	}
-	lines = append(lines, "")
-	// janela de itens que cabe na tela
-	room := max(3, c.H-len(lines)-4)
-	first := max(0, min(m.cur-room/2, len(m.Items)-room))
-	last := min(len(m.Items), first+room)
-	lw := c.W - 7
-	for i := first; i < last; i++ {
-		it := m.Items[i]
-		key := it.Key
-		if key == "" {
-			key = "·"
+	// linhas do menu: títulos de seção + itens (idx = índice do item, -1 = título)
+	type row struct {
+		idx  int
+		text string
+	}
+	var rows []row
+	last, curRow := "", 0
+	for i, it := range m.Items {
+		if it.Group != "" && it.Group != last {
+			if len(rows) > 0 {
+				rows = append(rows, row{-1, ""})
+			}
+			rows = append(rows, row{-1, "  " + section(it.Group)})
+			last = it.Group
 		}
 		if i == m.cur {
+			curRow = len(rows)
+		}
+		rows = append(rows, row{i, ""})
+	}
+	// janela de linhas que cabe na tela (reserva: dica, rodapé, respiro)
+	room := max(4, c.H-len(lines)-6)
+	first := max(0, min(curRow-room/2, len(rows)-room))
+	end := min(len(rows), first+room)
+	lw := c.W - 4
+	for _, r := range rows[first:end] {
+		if r.idx < 0 {
+			lines = append(lines, r.text)
+			continue
+		}
+		it := m.Items[r.idx]
+		key := it.Key
+		if i := r.idx; i == m.cur {
 			p := float64(c.Frame-m.changedAt) / decryptFrames
-			label := fx.Decrypt(fit(it.Label, lw), p, c.RNG)
-			lines = append(lines, band(bold("▌", Accent)+" "+bold(key, Accent)+"  "+bold(label, White), c.W))
+			label := fx.Decrypt(fit(it.Label, lw-4), p, c.RNG)
+			lines = append(lines, band(tag(ansi.Strip(label), key+" ", c.W-2), c.W))
 		} else {
-			lines = append(lines, "  "+paint(key, Faint)+"  "+paint(fit(it.Label, lw), Text))
+			lines = append(lines, tag("  "+paint(fit(it.Label, lw-4), Text), paint(key, Faint)+" ", c.W))
 		}
 	}
-	lines = append(lines, "")
 	if h := m.Items[m.cur].Hint; h != "" {
-		lines = append(lines, " "+paint("› "+fit(h, c.W-4), Dim))
+		lines = append(lines, "")
+		for _, l := range card(c.W-3, Cyan, paint(fit(h, c.W-9), Dim)) {
+			lines = append(lines, " "+l)
+		}
 	}
-	pos := paint(strings.Repeat("0", 2-len(itoa(m.cur+1)))+itoa(m.cur+1), Cyan) + paint("/"+itoa(len(m.Items)), Faint)
-	lines = append(lines, footer(c.W-8, "↑↓ navegar", "⏎ ok", "q voltar")+"   "+pos)
+	lines = append(lines, footer(c.W, "↑↓ navegar", "⏎ abrir", "q voltar"))
 	return strings.Join(lines, "\n")
 }
 
