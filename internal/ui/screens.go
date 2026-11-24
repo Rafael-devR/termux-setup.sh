@@ -300,6 +300,10 @@ func (o *Options) finish(c *Ctx) tea.Cmd {
 }
 
 func (o *Options) Update(c *Ctx, msg tea.Msg) (Screen, tea.Cmd) {
+	if _, ok := msg.(tea.WindowSizeMsg); ok {
+		o.input.SetWidth(max(10, c.W-6))
+		return o, nil
+	}
 	key, isKey := msg.(tea.KeyPressMsg)
 	switch o.cur() {
 	case "name", "email":

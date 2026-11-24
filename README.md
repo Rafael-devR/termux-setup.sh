@@ -1,7 +1,7 @@
 # termux-setup
 
 Configura o Termux do zero (linguagens, ferramentas, um Ubuntu de verdade,
-Claude Code, Codex e Gemini, tema, fonte e barra de teclas) com uma
+Claude Code, Codex, Gemini e OpenCode, tema, fonte e barra de teclas) com uma
 interface animada no terminal.
 
 Escrito em **Go** com **[Bubble Tea v2](https://github.com/charmbracelet/bubbletea)**
@@ -56,9 +56,9 @@ ou 2 (incompleto).
   gh/lazygit/neovim e Termux:API.
 - **Ubuntu (proot):** ferramentas, C/C++, Python com venv, Node.js LTS e
   Java 21. Atualização completa com reparo e limpeza.
-- **IAs:** Claude Code (instalador oficial), Codex CLI e Gemini CLI,
-  dentro do Ubuntu, com os comandos `claude`, `codex` e `gemini` no
-  Termux. A pasta atual do Termux aparece no Ubuntu como `/work/<pasta>`.
+- **IAs:** Claude Code (instalador oficial), Codex CLI, Gemini CLI e
+  OpenCode, dentro do Ubuntu, com os comandos `claude`, `codex`, `gemini`
+  e `opencode` no Termux. A pasta atual do Termux aparece no Ubuntu como `/work/<pasta>`.
 - **Aparência:** tema do VS Code, JetBrains Mono (conferida por SHA256),
   barra de teclas com atalhos e sem a mensagem de boas-vindas.
 - **Espelhos:** mede os 12 espelhos oficiais e usa o melhor. Se o

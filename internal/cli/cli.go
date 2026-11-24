@@ -120,7 +120,7 @@ com --sim não fazem nenhuma pergunta.`,
 	root.AddCommand(
 		preset("tudo", "Instalação completa (tudo + Ubuntu + IAs)"),
 		preset("dev", "Dev padrão: linguagens, ferramentas e aparência"),
-		preset("ia", "Ubuntu (+ ferramentas) + Claude Code, Codex e Gemini"),
+		preset("ia", "Ubuntu (+ ferramentas) + Claude Code, Codex, Gemini e OpenCode"),
 		&cobra.Command{Use: "instalar <módulo>...", Short: "Instala módulos específicos (veja: termux-setup modulos)",
 			Args: cobra.MinimumNArgs(1),
 			RunE: func(cmd *cobra.Command, args []string) error { return install(cmd, f, args) }},
@@ -270,10 +270,15 @@ func runText(cmd *cobra.Command, s *app.Services, p *plan.Plan) error {
 
 func runTUI(s *app.Services, first ui.Screen, auto bool, out io.Writer) error {
 	m := ui.New(s, first, auto)
-	if _, err := tea.NewProgram(m).Run(); err != nil {
+	_, err := tea.NewProgram(m).Run()
+	// Saída limpa (como nos CLIs de IA): a tela "normal" do terminal pode
+	// ter sido reorganizada enquanto o app estava aberto (teclado, rotação).
+	// Reseta cores, mostra o cursor, limpa a tela e volta ao topo.
+	fmt.Fprint(out, "\x1b[0m\x1b[?25h\x1b[2J\x1b[H")
+	if err != nil {
 		return err
 	}
-	fmt.Fprintln(out, " conexão encerrada · logs em "+s.Env.Tilde(s.Env.LogDir))
+	fmt.Fprintln(out, " ◈ termux-setup · logs em "+s.Env.Tilde(s.Env.LogDir))
 	return nil
 }
 

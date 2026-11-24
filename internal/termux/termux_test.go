@@ -117,3 +117,13 @@ func TestUbuntuCommands(t *testing.T) {
 		t.Fatal("atualizar deve ser executável")
 	}
 }
+
+func TestOpenCodeCommand(t *testing.T) {
+	e := testutil.Env(t)
+	if err := termux.WriteUbuntuCommands(e, termux.UbuntuNames{Distro: "ubuntu", User: "dev"}); err != nil {
+		t.Fatal(err)
+	}
+	if got := testutil.Read(t, filepath.Join(e.BinDir(), "opencode")); !strings.Contains(got, `ia-run" opencode "$@"`) {
+		t.Fatal(got)
+	}
+}

@@ -285,7 +285,7 @@ func ubCommands(_ context.Context, s *engine.StepCtx) error {
 	if err := termux.WriteUbuntuCommands(s.Env, termux.UbuntuNames{Distro: ubuntu.Distro, User: ubuntu.User}); err != nil {
 		return err
 	}
-	s.Logf("Comandos: claude codex gemini ubuntu ubuntu-root ia-run ia-update")
+	s.Logf("Comandos: claude codex gemini opencode ubuntu ubuntu-root ia-run ia-update")
 	return nil
 }
 

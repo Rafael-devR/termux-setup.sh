@@ -144,7 +144,7 @@ func Update(withUbuntu bool) *Plan {
 	if withUbuntu {
 		p.Steps = append(p.Steps,
 			Step{Label: "Ubuntu: atualizar tudo", Action: "ubuntu-upgrade", Seconds: 40},
-			Step{Label: "Atualizar Claude/Codex/Gemini", Action: "ia-update", Seconds: 40})
+			Step{Label: "Atualizar as IAs", Action: "ia-update", Seconds: 40})
 	}
 	p.Steps = append(p.Steps, cleanup)
 	p.Est.Seconds = p.Seconds()
@@ -158,7 +158,7 @@ func Ubuntu(upgrade, ia bool) *Plan {
 		p.Steps = append(p.Steps, Step{Label: "Ubuntu: atualizar tudo", Action: "ubuntu-upgrade", Seconds: 40})
 	}
 	if ia {
-		p.Steps = append(p.Steps, Step{Label: "Atualizar Claude/Codex/Gemini", Action: "ia-update", Seconds: 40})
+		p.Steps = append(p.Steps, Step{Label: "Atualizar as IAs", Action: "ia-update", Seconds: 40})
 	}
 	p.Est.Seconds = p.Seconds()
 	return p

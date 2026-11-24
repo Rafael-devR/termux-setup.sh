@@ -73,7 +73,7 @@ Uma ação é uma função Go registrada em `internal/actions/actions.go`.
 | `ubuntu-node`     |              | Node.js LTS (NodeSource) no Ubuntu                 |
 | `ubuntu-pyvenv`   |              | `~/venv` no Ubuntu                                 |
 | `claude-install`  |              | Instalador oficial do Claude Code                  |
-| `ub-commands`     |              | Cria `claude`, `codex`, `gemini`, `ubuntu`… em `~/bin` |
+| `ub-commands`     |              | Cria `claude`, `codex`, `gemini`, `opencode`, `ubuntu`… em `~/bin` |
 | `theme` `font` `keys` `hush` |   | Aparência                                          |
 | `reload-settings` |              | `termux-reload-settings`                           |
 | `root-tsu`        |              | root-repo + tsu                                    |

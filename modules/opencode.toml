@@ -1,0 +1,29 @@
+# Ferramenta do termux-setup. Formato: docs/MODULOS.md
+
+id = "opencode"
+name = "OpenCode"
+description = "Agente de código open source (vários provedores de IA), via npm, dentro do Ubuntu."
+group = "ia"
+order = 330
+target = "none"
+requires = ["ubuntu", "ubnode"]
+arch = ["aarch64", "x86_64"]  # 64 bits (o npm só publica arm64 e x64)
+presets = ["ia", "tudo"]
+verify = ["opencode --version"]
+verify_in = "ubuntu"
+
+[estimate]  # aproximado, base arm64
+seconds = 35
+download_mb = 60
+disk_mb = 160
+
+[[steps]]
+label = "OpenCode"
+action = "ub-npm"
+args = ["opencode-ai"]
+seconds = 35
+
+[[finalize]]
+label = "Criar comandos ubuntu / ia-run"
+action = "ub-commands"
+seconds = 1

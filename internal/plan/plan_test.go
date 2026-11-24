@@ -79,3 +79,23 @@ func TestUpdate(t *testing.T) {
 		t.Fatal(a)
 	}
 }
+
+func TestOpenCodeNeedsUbuntuAndNode(t *testing.T) {
+	c, _ := catalog.Load(modules.FS)
+	p, err := plan.Install(c, []string{"opencode"}, plan.Options{}, "aarch64", 100)
+	if err != nil {
+		t.Fatal(err)
+	}
+	a := actions(p)
+	if !slices.Contains(a, "ubuntu-node") || !slices.Contains(a, "ub-npm") || count(a, "ub-commands") != 1 {
+		t.Fatal(a)
+	}
+	for _, s := range p.Steps {
+		if s.Action == "ub-npm" && s.Args[0] != "opencode-ai" {
+			t.Fatal(s.Args)
+		}
+	}
+	if p2, _ := plan.Install(c, []string{"opencode"}, plan.Options{}, "armv7l", 80); p2.Has("opencode") {
+		t.Fatal("opencode não roda em 32 bits")
+	}
+}

@@ -114,7 +114,20 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmds []tea.Cmd
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
+		// Teclado abrindo, tela girando: o terminal (o Termux, por exemplo)
+		// reorganiza o texto que já estava na tela, e o renderizador não
+		// sabe disso. Sem limpar, ele desenharia só as diferenças por cima
+		// de uma tela que já mudou (é daí que vem a "sujeira"). Então:
+		// limpa tudo e redesenha do zero no tamanho novo.
+		resized := msg.Width != m.ctx.W || msg.Height != m.ctx.H
 		m.ctx.W, m.ctx.H = msg.Width, msg.Height
+		m.reveal = 1 << 20
+		next, cmd := m.top().Update(m.ctx, msg)
+		m.stack[len(m.stack)-1] = next
+		if resized {
+			return m, tea.Batch(tea.ClearScreen, cmd, m.ensureTick())
+		}
+		return m, tea.Batch(cmd, m.ensureTick())
 	case tickMsg:
 		m.ticking = false
 		m.ctx.Frame++
@@ -138,6 +151,10 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyPressMsg:
 		if m.revealing() { // tecla durante a entrada: mostra tudo de uma vez
 			m.reveal = 1 << 20
+		}
+		// Ctrl+C sai de qualquer tela (na instalação, interrompe primeiro)
+		if _, installing := m.top().(*Install); msg.String() == "ctrl+c" && !installing {
+			return m, tea.Quit
 		}
 	}
 	next, cmd := m.top().Update(m.ctx, msg)

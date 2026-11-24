@@ -127,7 +127,7 @@ func WriteUbuntuCommands(env *sys.Env, n UbuntuNames) error {
 		"ubuntu":      shebang + "exec \"$HOME/bin/ia-run\" bash -l\n",
 		"ubuntu-root": shebang + "exec proot-distro login " + n.Distro + "\n",
 	}
-	for _, c := range []string{"claude", "codex", "gemini"} {
+	for _, c := range []string{"claude", "codex", "gemini", "opencode"} {
 		files[c] = shebang + "exec \"$HOME/bin/ia-run\" " + c + " \"$@\"\n"
 	}
 	for name, body := range files {

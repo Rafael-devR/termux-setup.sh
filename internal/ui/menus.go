@@ -33,11 +33,11 @@ func MainMenu() *Menu {
 		},
 		OnBack: func(*Ctx) tea.Cmd { return Push(&Outro{}) },
 		Items: []MenuItem{
-			{Key: "1", Label: "Instalação completa (tudo + IA)", Hint: "Todos os módulos, Ubuntu e as 3 IAs.",
+			{Key: "1", Label: "Instalação completa (tudo + IA)", Hint: "Todos os módulos, Ubuntu e as 4 IAs.",
 				Run: func(c *Ctx) tea.Cmd { return StartInstall(c, c.S.Cat.Preset("tudo")) }},
 			{Key: "2", Label: "Dev padrão (recomendado)", Hint: "Linguagens, ferramentas e aparência. Sem Ubuntu.",
 				Run: func(c *Ctx) tea.Cmd { return StartInstall(c, c.S.Cat.Preset("dev")) }},
-			{Key: "3", Label: "Ubuntu & IA (linguagens + IAs)", Hint: "Ubuntu real no Termux, linguagens e Claude/Codex/Gemini.",
+			{Key: "3", Label: "Ubuntu & IA (linguagens + IAs)", Hint: "Ubuntu real no Termux, linguagens e Claude, Codex, Gemini e OpenCode.",
 				Run: func(*Ctx) tea.Cmd { return Push(UbuntuMenu()) }},
 			{Key: "4", Label: "Aparência (teclas, tema, fonte)", Hint: "Tema, fonte JetBrains Mono e barra de teclas.",
 				Run: func(c *Ctx) tea.Cmd {
@@ -79,7 +79,7 @@ func UbuntuMenu() *Menu {
 				paint("login das IAs: navegador, no 1º uso", Faint)}
 		},
 		Items: []MenuItem{
-			{Key: "1", Label: "Instalar tudo (linguagens + IAs)", Hint: "Ubuntu, todas as linguagens e as 3 IAs.",
+			{Key: "1", Label: "Instalar tudo (linguagens + IAs)", Hint: "Ubuntu, todas as linguagens e as 4 IAs.",
 				Run: func(c *Ctx) tea.Cmd {
 					ids := append(c.S.Cat.InGroup("ubuntu"), c.S.Cat.InGroup("ia")...)
 					return StartInstall(c, append(ids, "base", "api"))
@@ -90,7 +90,7 @@ func UbuntuMenu() *Menu {
 				}},
 			{Key: "3", Label: "Atualizar Ubuntu (+ limpeza)", Hint: "full-upgrade, reparo, autoremove e clean.",
 				Run: func(c *Ctx) tea.Cmd { return needUbuntu(c, plan.Ubuntu(true, false)) }},
-			{Key: "4", Label: "Atualizar só as IAs", Hint: "Claude, Codex, Gemini, pip e pipx.",
+			{Key: "4", Label: "Atualizar só as IAs", Hint: "Claude, Codex, Gemini, OpenCode, pip e pipx.",
 				Run: func(c *Ctx) tea.Cmd { return needUbuntu(c, plan.Ubuntu(false, true)) }},
 			{Key: "5", Label: "Atualizar Ubuntu + IAs",
 				Run: func(c *Ctx) tea.Cmd { return needUbuntu(c, plan.Ubuntu(true, true)) }},

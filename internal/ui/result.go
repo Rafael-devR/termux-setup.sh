@@ -112,9 +112,9 @@ func (v *Result) View(c *Ctx) string {
 	} else if r.Plan.Kind == plan.KindInstall {
 		lines = append(lines, " "+bold("Próximos passos", White),
 			"  "+bold("source ~/.bashrc", Cyan)+paint(" (ou reabra o Termux)", Dim))
-		for _, ia := range []struct{ id, how string }{{"claude", "login pelo navegador"}, {"codex", "Sign in with ChatGPT"}, {"gemini", "login Google ou GEMINI_API_KEY"}} {
+		for _, ia := range []struct{ id, how string }{{"claude", "login pelo navegador"}, {"codex", "Sign in with ChatGPT"}, {"gemini", "Google ou GEMINI_API_KEY"}, {"opencode", "opencode auth login"}} {
 			if r.Plan.Has(ia.id) {
-				lines = append(lines, "  "+bold(pad(ia.id, 7), Cyan)+paint(ia.how, Dim))
+				lines = append(lines, fit("  "+bold(pad(ia.id, 9), Cyan)+paint(ia.how, Dim), c.W))
 			}
 		}
 		if r.Plan.Has("ubuntu") {
