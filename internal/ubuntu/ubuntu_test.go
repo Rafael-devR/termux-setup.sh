@@ -112,3 +112,48 @@ func TestNpmScriptsUseNpmGlobal(t *testing.T) {
 		}
 	}
 }
+
+// Depois de instalar, o npm.sh confere se o comando funciona. Se não
+// funcionar, roda o postinstall na mão; se continuar sem funcionar, falha
+// (em vez de deixar o passo "OK" com o programa quebrado).
+func TestNpmScriptVerifiesCommand(t *testing.T) {
+	if _, err := exec.LookPath("bash"); err != nil {
+		t.Skip("sem bash")
+	}
+	run := func(fixable bool) (string, error) {
+		dir := t.TempDir()
+		pkgDir := dir + "/root/pacote"
+		if err := os.MkdirAll(pkgDir, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(pkgDir+"/postinstall.mjs", nil, 0o644); err != nil {
+			t.Fatal(err)
+		}
+		flag := dir + "/consertado"
+		write := func(name, body string) {
+			if err := os.WriteFile(dir+"/"+name, []byte("#!/bin/sh\n"+body), 0o755); err != nil {
+				t.Fatal(err)
+			}
+		}
+		write("npm", "case \"$1\" in root) echo "+dir+"/root;; esac\nexit 0\n")
+		// "node postinstall.mjs" só conserta se o teste permitir
+		if fixable {
+			write("node", "touch "+flag+"\n")
+		} else {
+			write("node", "exit 0\n")
+		}
+		write("meucmd", "[ -f "+flag+" ] && { echo 1.0.0; exit 0; }\necho 'Error: postinstall script was not run' >&2\nexit 1\n")
+		cmd := exec.Command("bash", "-c", ubuntu.Script("npm", map[string]string{"PKG": "pacote@latest", "CMD": "meucmd"}))
+		cmd.Env = append(os.Environ(), "PATH="+dir+":"+os.Getenv("PATH"), "HOME="+dir)
+		out, err := cmd.CombinedOutput()
+		return string(out), err
+	}
+	out, err := run(true)
+	if err != nil || !strings.Contains(out, "rodando o postinstall na mão") || !strings.Contains(out, "1.0.0") {
+		t.Fatalf("deveria consertar rodando o postinstall: %v\n%s", err, out)
+	}
+	out, err = run(false)
+	if err == nil || !strings.Contains(out, "não funciona depois de instalar") {
+		t.Fatalf("deveria falhar quando não dá para consertar: %v\n%s", err, out)
+	}
+}
