@@ -1,7 +1,10 @@
 #!/data/data/com.termux/files/usr/bin/bash
 # =====================================================================
-#  TERMUX SETUP v4.1
+#  TERMUX SETUP v5.0
+#  Visual "hacker": chuva de caracteres, logo que se decifra, glitch,
+#  onda senoidal, menus animados (desligue com --sem-animacao).
 #  Painel fixo, menu por setas, estimativas, log final, Ubuntu (proot)
+#  + Ubuntu: linguagens (Python, Node, Java, C/C++) e atualização completa
 #  + Claude Code, Codex CLI e Gemini CLI (instaladores oficiais)
 #  + Aparência: barra de teclas, tema VS Code, fonte JetBrains Mono
 #  + GitHub (login por token) e Root (tsu) opcionais.
@@ -18,7 +21,7 @@ if [ -z "${BASH_VERSINFO:-}" ] || [ "${BASH_VERSINFO[0]}" -lt 4 ]; then
   echo "Este script precisa de bash 4 ou superior."; exit 1
 fi
 
-VERSION="4.1"
+VERSION="5.0"
 SELF="$(readlink -f "$0" 2>/dev/null || echo "$0")"
 
 # ================================================================= CONFIGURAÇÃO
@@ -45,19 +48,21 @@ Uso: bash termux-setup.sh [opção] [--sim] [--teste]
   (sem opção)     abre o menu
   --tudo          instalação completa (tudo + IA)
   --dev           dev padrão (recomendado)
-  --ia            Ubuntu + Claude Code, Codex e Gemini
+  --ia            Ubuntu (+ ferramentas) + Claude Code, Codex e Gemini
   --atualizar     atualiza Termux, Ubuntu e IAs (sem menu)
   --desfazer      restaura espelho, aparência e .bashrc originais
   --sim           não faz perguntas (usa os padrões)
+  --sem-animacao  desliga as animações (celular lento)
   --teste         simulação: não instala nada
   --ajuda         mostra esta ajuda
 EOF
 }
-DRY=0; AUTO=0; ACTION=""
+DRY=0; AUTO=0; ACTION=""; NOANIM=0
 for a in "$@"; do
   case "$a" in
     --teste) DRY=1 ;;
     --sim|-y) AUTO=1 ;;
+    --sem-animacao) NOANIM=1 ;;
     --tudo|--dev|--ia|--atualizar|--desfazer) ACTION="${a#--}" ;;
     -h|--ajuda|--help) usage; exit 0 ;;
     *) echo "Opção desconhecida: $a"; echo; usage; exit 1 ;;
@@ -79,21 +84,46 @@ PREFIX="${PREFIX:-/data/data/com.termux/files/usr}"
 export DEBIAN_FRONTEND=noninteractive
 
 # ---------------------------------------------------------------- cores
+# Paleta de 256 cores (o Termux suporta). PALC = degradê ciano -> magenta.
+E=$'\033'
 C_N=$'\033[0m'; C_B=$'\033[1m'; C_D=$'\033[2m'
-C_R=$'\033[1;31m'; C_G=$'\033[1;32m'; C_Y=$'\033[1;33m'
-C_CY=$'\033[1;36m'; C_M=$'\033[1;35m'
+C_R=$'\033[1;38;5;203m'; C_G=$'\033[1;38;5;84m'; C_Y=$'\033[1;38;5;221m'
+C_CY=$'\033[1;38;5;51m'; C_M=$'\033[1;38;5;207m'
+C_W=$'\033[38;5;255m'; C_TX=$'\033[38;5;250m'; C_DIM3=$'\033[38;5;244m'; C_DK=$'\033[38;5;239m'
+C_HEAD=$'\033[1;38;5;231m'; C_ACC=$'\033[1;38;5;207m'; BG_SEL=$'\033[48;5;235m'
+PALC=(); for _c in 51 45 39 33 63 99 135 171 207 201; do PALC+=("${E}[38;5;${_c}m"); done
+NP=${#PALC[@]}
+GR=("${E}[38;5;22m" "${E}[38;5;28m" "${E}[38;5;34m" "${E}[38;5;40m" "${E}[38;5;46m") # verdes da "chuva"
+GLY=(0 1 2 3 4 5 6 7 8 9 a b c d e f A B C D E F '#' '$' '%' '&' '*' '+' '=' '<' '>' '/' '\' '|' '{' '}' '[' ']' '?' '!' '~' '^' λ Σ π Δ ∇ ∫ √ ∞ ≈ Ω µ φ θ ψ)
+NG=${#GLY[@]}
+SINE=(4 5 6 7 7 6 5 4 3 2 1 0 0 1 2 3)    # seno inteiro (16 pontos, 0..7)
+SPARK=(▁ ▂ ▃ ▄ ▅ ▆ ▇ █)
 SPIN=('⠋' '⠙' '⠹' '⠸' '⠼' '⠴' '⠦' '⠧' '⠇' '⠏')
-ROWS=24; COLS=40; RULE=""
+GRAD_NAME="${PALC[0]}◈ ${C_B}"
+for ((_i=0; _i<6; _i++)); do _t=TERMUX; GRAD_NAME+="${PALC[_i+3]}${_t:_i:1}"; done
+GRAD_NAME+="${C_N}"
+ROWS=24; COLS=40; RULE=""; RULEW=38
+
+# animações: só em terminal de verdade, e nunca no modo --sim
+ANIM=1
+{ [ -t 0 ] && [ -t 1 ]; } || ANIM=0
+[ "$AUTO" = 1 ] && ANIM=0
+[ "$NOANIM" = 1 ] && ANIM=0
+[ "${TSETUP_ANIM:-1}" = 0 ] && ANIM=0
+FX_SKIP=0; FX_INTRO=0; FX_REVEAL=0
+# "sleep" sem criar processo (lê com tempo-limite de um pipe que nunca recebe nada)
+FXFD=""; exec {FXFD}<> <(:) || FXFD=""
 
 rep() { local s="" i; for ((i=0; i<$2; i++)); do s+="$1"; done; printf '%s' "$s"; }
 term_size() {
   COLS=$(tput cols 2>/dev/null || echo 40); ROWS=$(tput lines 2>/dev/null || echo 24)
   [[ $COLS =~ ^[0-9]+$ ]] || COLS=40
   [[ $ROWS =~ ^[0-9]+$ ]] || ROWS=24
+  RULEW=$(( COLS > 61 ? 60 : COLS - 2 ))
   RULE="$(rep '─' $(( COLS > 61 ? 60 : COLS - 1 )))"
 }
 term_size
-L() { printf '%s\033[K\n' "$*"; }
+L() { printf '%s\033[K\033[0m\n' "$*"; [ "$FX_REVEAL" = 1 ] && fx_sleep 0.012; }
 hide_cur() { printf '\033[?25l'; }
 show_cur() { printf '\033[?25h'; }
 
@@ -133,7 +163,8 @@ MIRRORS=(
 )
 
 # ---------------------------------------------------------------- módulos
-MOD_ORDER=(base build python node java web db net extras term dev2 api ubuntu claude codex gemini hush theme font keys root)
+MOD_ORDER=(base build python node java web db net extras term dev2 api ubuntu ubtools ubbuild ubpy ubnode ubjava claude codex gemini hush theme font keys root)
+UB_MODS="ubtools ubbuild ubpy ubnode ubjava"   # módulos instalados DENTRO do Ubuntu
 declare -A MOD_NAME=(
   [base]="Base: git ssh vim zip"
   [build]="Compiladores: clang make cmake"
@@ -148,6 +179,11 @@ declare -A MOD_NAME=(
   [dev2]="Dev+: gh lazygit neovim"
   [api]="Termux:API (notificações)"
   [ubuntu]="Ubuntu ${UBUNTU_VERSIONS%% *} LTS (proot)"
+  [ubtools]="Ubuntu: ferramentas (git jq rg htop)"
+  [ubbuild]="Ubuntu: C/C++ (gcc make cmake gdb)"
+  [ubpy]="Ubuntu: Python 3 + pip + venv"
+  [ubnode]="Ubuntu: Node.js LTS + npm"
+  [ubjava]="Ubuntu: Java 21 (JDK) + maven"
   [claude]="Claude Code (oficial)"
   [codex]="Codex CLI (OpenAI)"
   [gemini]="Gemini CLI (Google)"
@@ -172,10 +208,17 @@ declare -A MOD_PKGS=(
   [dev2]="gh lazygit neovim"
   [api]="termux-api"
 )
+# pacotes do apt do Ubuntu ("a|b" = o primeiro que existir). Node vem do NodeSource.
+declare -A UB_PKGS=(
+  [ubtools]="git curl wget zip unzip jq ripgrep fd-find htop tmux vim nano tree less file openssh-client sqlite3 rsync"
+  [ubbuild]="build-essential cmake gdb pkg-config autoconf automake libtool ninja-build libssl-dev libffi-dev zlib1g-dev"
+  [ubpy]="python3 python3-pip python3-venv python3-dev pipx"
+  [ubjava]="openjdk-21-jdk-headless|openjdk-17-jdk-headless maven"
+)
 # peso (segundos estimados) usado na barra de progresso; download/disco em MB (aprox., base arm64)
-declare -A MOD_W=(  [base]=12 [build]=45 [python]=20 [node]=25 [java]=120 [web]=35 [db]=15 [net]=40 [extras]=40 [term]=12 [dev2]=40 [api]=6 [ubuntu]=200 [claude]=50 [codex]=30 [gemini]=35 [hush]=1 [theme]=1 [font]=8 [keys]=1 [root]=12 )
-declare -A MOD_DL=( [base]=6  [build]=70 [python]=35 [node]=12 [java]=280 [web]=45 [db]=2  [net]=9  [extras]=11 [term]=12 [dev2]=60 [api]=1 [ubuntu]=160 [claude]=270 [codex]=40 [gemini]=80 [hush]=0 [theme]=0 [font]=2 [keys]=0 [root]=2 )
-declare -A MOD_DISK=([base]=25 [build]=400 [python]=150 [node]=60 [java]=460 [web]=170 [db]=6  [net]=44 [extras]=42 [term]=30 [dev2]=200 [api]=1 [ubuntu]=500 [claude]=300 [codex]=120 [gemini]=250 [hush]=0 [theme]=0 [font]=2 [keys]=0 [root]=5 )
+declare -A MOD_W=(  [base]=12 [build]=45 [python]=20 [node]=25 [java]=120 [web]=35 [db]=15 [net]=40 [extras]=40 [term]=12 [dev2]=40 [api]=6 [ubuntu]=200 [ubtools]=30 [ubbuild]=60 [ubpy]=40 [ubnode]=45 [ubjava]=90 [claude]=50 [codex]=30 [gemini]=35 [hush]=1 [theme]=1 [font]=8 [keys]=1 [root]=12 )
+declare -A MOD_DL=( [base]=6  [build]=70 [python]=35 [node]=12 [java]=280 [web]=45 [db]=2  [net]=9  [extras]=11 [term]=12 [dev2]=60 [api]=1 [ubuntu]=160 [ubtools]=25 [ubbuild]=80 [ubpy]=40 [ubnode]=30 [ubjava]=180 [claude]=270 [codex]=40 [gemini]=80 [hush]=0 [theme]=0 [font]=2 [keys]=0 [root]=2 )
+declare -A MOD_DISK=([base]=25 [build]=400 [python]=150 [node]=60 [java]=460 [web]=170 [db]=6  [net]=44 [extras]=42 [term]=30 [dev2]=200 [api]=1 [ubuntu]=500 [ubtools]=90 [ubbuild]=350 [ubpy]=180 [ubnode]=150 [ubjava]=400 [claude]=300 [codex]=120 [gemini]=250 [hush]=0 [theme]=0 [font]=2 [keys]=0 [root]=5 )
 
 # ---------------------------------------------------------------- arquitetura
 # Os tamanhos acima são para arm64. Em 32 bits os pacotes são ~20% menores,
@@ -189,37 +232,273 @@ arch_ok() { # $1 = módulo -> 0 se funciona nesta arquitetura
   case "$1" in claude|codex) [ "$ARCH_64" = 1 ] ;; *) return 0 ;; esac
 }
 
+# ================================================================= FX (efeitos)
+fx_sleep() { if [ -n "$FXFD" ]; then read -rt "$1" -u "$FXFD" _ 2>/dev/null; else sleep "$1"; fi; return 0; }
+fx_wait() { # espera $1 s lendo o teclado: qualquer tecla pula a intro
+  [ "$FX_SKIP" = 1 ] && return 1
+  IFS= read -rsn1 -t "$1" _ && { FX_SKIP=1; return 1; }
+  return 0
+}
+fx_tick() { # um quadro de animação; 1 = parar
+  if [ "$FX_INTRO" = 1 ]; then fx_wait "$1"; return; fi
+  read -t 0 && return 1          # tem tecla esperando: não atrasa quem está navegando
+  fx_sleep "$1"
+}
+fx_flush() { while IFS= read -rsn1 -t 0.01 _; do :; done; }
+
+# texto "decifrado": letras aleatórias que vão travando, da esquerda p/ direita
+fx_decrypt() { # linha coluna "texto" cor [quadros]   (linha "@" = posição guardada com ESC 7)
+  local r=$1 c=$2 t="$3" col="$4" n=${5:-8} f i s ch len=${#3} pos
+  if [ "$r" = @ ]; then pos="${E}8${E}7${E}[${c}G"   # volta e guarda de novo (alguns terminais "gastam")
+  else printf '%s7' "$E"; pos="${E}[${r};${c}H"; fi   # guarda o cursor (volta no fim)
+  if [ "$ANIM" = 1 ]; then
+    for ((f=1; f<n; f++)); do
+      s=""
+      for ((i=0; i<len; i++)); do
+        ch="${t:i:1}"
+        if [ "$ch" = " " ] || (( i < len * f / n )); then s+="$ch"; else s+="${GLY[RANDOM%NG]}"; fi
+      done
+      printf '%s%s%s%s' "$pos" "$col" "$s" "$C_N"
+      fx_tick 0.022 || break
+    done
+  fi
+  printf '%s%s%s%s' "$pos" "$col" "$t" "$C_N"
+  [ "$r" = @ ] || printf '%s8' "$E"
+}
+
+# ---------------------------------------------------------------- logo
+# Letras desenhadas em grade 5x5 ('#' = pixel). O logo grande usa █ (5 linhas);
+# o pequeno junta 2 linhas de pixels em 1 com meio-blocos ▀ ▄ (3 linhas).
+declare -A FONT=(
+  [T]="#####|  #  |  #  |  #  |  #  "
+  [E]="#####|#    |#### |#    |#####"
+  [R]="#### |#   #|#### |#  # |#   #"
+  [M]="#   #|## ##|# # #|#   #|#   #"
+  [U]="#   #|#   #|#   #|#   #| ### "
+  [X]="#   #| # # |  #  | # # |#   #"
+)
+LOGO_BIG=(); LOGO_SMALL=(); LOGO_S_C=()
+logo_line() { # linha "plana" (# u d espaço) -> colorida em degradê por coluna
+  local p="$1" c n=${#1} s="" ch
+  for ((c=0; c<n; c++)); do
+    case "${p:c:1}" in '#') ch="█" ;; u) ch="▀" ;; d) ch="▄" ;; *) s+=" "; continue ;; esac
+    s+="${PALC[c*NP/n]}$ch"
+  done
+  printf '%s' "$s${C_N}"
+}
+logo_build() {
+  local w="TERMUX" i r c a b line rows bm=("" "" "" "" "")
+  for ((i=0; i<${#w}; i++)); do
+    IFS='|' read -ra rows <<< "${FONT[${w:i:1}]}"
+    for r in 0 1 2 3 4; do bm[r]+="${rows[r]}"; if (( i < ${#w} - 1 )); then bm[r]+=" "; fi; done
+  done
+  LOGO_BIG=("${bm[@]}")
+  for r in 0 2 4; do
+    line=""
+    for ((c=0; c<${#bm[0]}; c++)); do
+      a="${bm[r]:c:1}"; b=" "; (( r < 4 )) && b="${bm[r+1]:c:1}"
+      case "$a$b" in "##") line+="#" ;; "# ") line+="u" ;; " #") line+="d" ;; *) line+=" " ;; esac
+    done
+    LOGO_SMALL+=("$line"); LOGO_S_C+=("$(logo_line "$line")")
+  done
+}
+logo_build
+
+fx_logo_final() { # sombra (camada de baixo, deslocada 1↘) + logo (camada de cima)
+  local -n LGF=$1; local top=$2 left=$3 H=${#LGF[@]} W=${#LGF[0]} r c buf="" nx
+  for ((r=0; r<H+1; r++)); do buf+="${E}[$((top+r));$((left-1))H$(printf '%*s' $((W+3)) '')"; done
+  for ((r=0; r<H; r++)); do
+    for ((c=0; c<W; c++)); do
+      [ "${LGF[r]:c:1}" = " " ] && continue
+      nx=" "; (( r + 1 < H )) && nx="${LGF[r+1]:c+1:1}"
+      [ "$nx" = " " ] || [ -z "$nx" ] && buf+="${E}[$((top+r+1));$((left+c+1))H${C_DK}░"
+    done
+  done
+  for ((r=0; r<H; r++)); do buf+="${E}[$((top+r));${left}H$(logo_line "${LGF[r]}")"; done
+  printf '%s' "$buf"
+}
+
+fx_formulas() { # camada de fundo: fórmulas e hexadecimais espalhados
+  local i r c buf="" fs=("∇·E = ρ/ε" "e^iπ + 1 = 0" "∑ 1/n² = π²/6" "∫ f(x) dx" "λ = h/p" "0xDEADBEEF"
+    "ψ(x,t)" "Δx·Δp ≥ ħ/2" "√2 ≈ 1.4142" "SHA-256" "0x7F454C46" "∞" "Ω" "lim x→0" "E = mc²" "∂ψ/∂t")
+  for ((i=0; i<${#fs[@]}; i++)); do
+    r=$(( RANDOM % ROWS + 1 )); c=$(( RANDOM % (COLS > 18 ? COLS - 16 : 1) + 1 ))
+    buf+="${E}[${r};${c}H${C_DK}${fs[i]}"
+  done
+  printf '%s' "$buf${C_N}"
+}
+
+fx_splash() { # intro: chuva de caracteres -> logo se decifra -> glitch -> onda -> boot
+  [ "$ANIM" = 1 ] || return 0
+  term_size
+  local big=1 H W top left f F=40 c r y k rr pc buf s ch line row sub
+  local -a Y LEN LK
+  if [ "$COLS" -lt 40 ] || [ "$ROWS" -lt 20 ]; then big=0; fi
+  local lgn=LOGO_SMALL; [ $big = 1 ] && lgn=LOGO_BIG
+  local -n LG=$lgn
+  H=${#LG[@]}; W=${#LG[0]}
+  top=$(( ROWS / 2 - H - 3 )); [ $top -lt 2 ] && top=2
+  left=$(( (COLS - W) / 2 + 1 )); [ $left -lt 2 ] && left=2
+  FX_SKIP=0; FX_INTRO=1; hide_cur; printf '%s[0m%s[2J' "$E" "$E"
+  fx_formulas
+  for ((c=1; c<=COLS; c+=2)); do Y[c]=$(( -(RANDOM % ROWS) )); LEN[c]=$(( RANDOM % 8 + 6 )); done
+  for ((c=0; c<W; c++)); do LK[c]=$(( 16 + c * 22 / W + RANDOM % 4 )); done
+  # --- camada 1: chuva | camada 2: logo sendo decifrado por cima
+  for ((f=0; f<F; f++)); do
+    buf=""
+    for ((c=1; c<=COLS; c+=2)); do
+      y=${Y[c]}; pc=0
+      (( f >= 12 && c >= left - 2 && c <= left + W + 1 )) && pc=1
+      for k in 0 1 4 "${LEN[c]}"; do
+        rr=$(( y - k )); (( rr < 1 || rr > ROWS )) && continue
+        (( pc && rr >= top - 1 && rr <= top + H )) && continue
+        case $k in
+          0) ch="${C_HEAD}${GLY[RANDOM%NG]}" ;; 1) ch="${GR[4]}${GLY[RANDOM%NG]}" ;;
+          4) ch="${GR[1]}${GLY[RANDOM%NG]}" ;; *) ch=" " ;;
+        esac
+        buf+="${E}[${rr};${c}H$ch"
+      done
+      Y[c]=$(( y + 1 )); (( y - LEN[c] > ROWS )) && Y[c]=$(( -(RANDOM % 6) ))
+    done
+    (( f == 12 )) && for ((r=top-1; r<=top+H; r++)); do buf+="${E}[${r};$((left-2))H$(printf '%*s' $((W+4)) '')"; done
+    if (( f >= 13 )); then
+      for ((r=0; r<H; r++)); do
+        line="${LG[r]}"; s=""
+        for ((c=0; c<W; c++)); do
+          ch="${line:c:1}"
+          if [ "$ch" = " " ]; then s+=" "; continue; fi
+          if (( f >= LK[c] + (r & 1) )); then
+            case "$ch" in '#') ch="█" ;; u) ch="▀" ;; d) ch="▄" ;; esac
+            s+="${PALC[c*NP/W]}$ch"
+          else s+="${GR[3]}${GLY[RANDOM%NG]}"; fi
+        done
+        buf+="${E}[$((top+r));${left}H$s"
+      done
+    fi
+    printf '%s' "$buf"
+    fx_wait 0.03 || break
+  done
+  # --- varredura: uma linha de luz desce limpando a chuva (o logo fica)
+  if [ "$FX_SKIP" = 0 ]; then
+    local scan; scan="$(rep '━' "$COLS")"
+    for ((r=1; r<=ROWS; r++)); do
+      if (( r >= top - 1 && r <= top + H )); then
+        buf="${E}[${r};1H$(printf '%*s' $(( left > 3 ? left - 3 : 0 )) '')${E}[${r};$((left+W+2))H${E}[K"
+      else buf="${E}[${r};1H${E}[2K"; fi
+      (( r < ROWS )) && ! (( r + 1 >= top - 1 && r + 1 <= top + H )) && buf+="${E}[$((r+1));1H${PALC[r*NP/ROWS]}${scan}${C_N}"
+      printf '%s' "$buf"
+      fx_wait 0.009 || break
+    done
+  fi
+  # --- glitch: linhas do logo "escorregam" e voltam
+  if [ "$FX_SKIP" = 0 ]; then
+    fx_logo_final "$lgn" "$top" "$left"
+    for k in 1 2 3; do
+      r=$(( RANDOM % H ))
+      printf '%s[%d;%dH%s%s' "$E" $((top+r)) $((left + (k % 2 ? 2 : -1))) "$C_M" "$(logo_line "${LG[r]}" | sed 's/\x1b\[[0-9;]*m//g')"
+      fx_wait 0.06 || break
+      fx_logo_final "$lgn" "$top" "$left"; fx_wait 0.09 || break
+    done
+  fi
+  # --- subtítulo + onda senoidal (a fórmula embaixo é a da própria onda)
+  sub=$(( top + H + 2 ))
+  if [ "$FX_SKIP" = 0 ]; then
+    s="S E T U P   //   v$VERSION"
+    fx_decrypt "$sub" $(( (COLS - ${#s}) / 2 + 1 )) "$s" "$C_W" 10
+    s="ƒ(x,t) = ½[sin(x+t) + sin(3x+2t)]"
+    (( sub + 3 <= ROWS )) && printf '%s[%d;%dH%s%s' "$E" $((sub+3)) $(( (COLS - ${#s}) / 2 + 1 )) "$C_DK" "$s"
+    for ((f=0; f<22; f++)); do
+      (( sub + 2 <= ROWS )) || break
+      printf '%s[%d;%dH%s' "$E" $((sub+2)) "$left" "$(wave "$W" "$f")"
+      fx_wait 0.035 || break
+    done
+  fi
+  # --- boot log digitado
+  row=$(( sub + 5 ))
+  if [ "$FX_SKIP" = 0 ]; then
+    local -a BL=("kernel ......... android $(getprop ro.build.version.release 2>/dev/null || echo ?)"
+                 "arquitetura .... $ARCH"
+                 "armazenamento .. $(( $(free_kb) / 1024 )) MB livres"
+                 "espelho ........ $(current_mirror | cut -c1-24)"
+                 "status ......... ONLINE")
+    for ((k=0; k<${#BL[@]}; k++)); do
+      (( row + k < ROWS )) || break
+      s="${BL[k]:0:$((COLS - 12))}"
+      printf '%s[%d;%dH%s0x%02X %s›%s ' "$E" $((row+k)) "$left" "$C_DK" $(( k * 31 + 16 )) "${PALC[k*2]}" "$C_N"
+      for ((c=0; c<${#s}; c+=3)); do printf '%s%s' "$C_DIM3" "${s:c:3}"; fx_wait 0.008 || break 2; done
+      [ $k = 4 ] && printf ' %s✓%s' "$C_G" "$C_N"
+    done
+    s="▸ ACESSO LIBERADO"
+    (( row + 6 <= ROWS )) && fx_decrypt $((row+6)) $(( (COLS - ${#s}) / 2 + 1 )) "$s" "$C_G" 12
+    fx_wait 0.6
+  fi
+  FX_INTRO=0; fx_flush; printf '%s' "$C_N"
+}
+
+fx_outro() { # desliga como TV de tubo: a imagem se fecha numa linha, depois num ponto
+  [ "$ANIM" = 1 ] || return 0
+  local top=1 bot=$ROWS mid w c
+  hide_cur
+  while (( top < bot )); do
+    printf '%s[%d;1H%s[2K%s[%d;1H%s[2K' "$E" $top "$E" "$E" $bot "$E"
+    top=$((top + 1)); bot=$((bot - 1))
+    if (( top < bot )); then
+      printf '%s[%d;1H%s%s%s[%d;1H%s%s' "$E" $top "${PALC[0]}" "$(rep '▔' "$COLS")" "$E" $bot "$(rep '▁' "$COLS")" "$C_N"
+    fi
+    fx_sleep 0.01
+  done
+  mid=$(( (ROWS + 1) / 2 )); w=$COLS
+  while (( w > 1 )); do
+    c=$(( (COLS - w) / 2 + 1 ))
+    printf '%s[%d;1H%s[2K%s[%d;%dH%s%s%s' "$E" $mid "$E" "$E" $mid $c "$C_HEAD" "$(rep '━' $w)" "$C_N"
+    w=$(( w * 3 / 5 )); fx_sleep 0.025
+  done
+  c=$(( COLS / 2 ))
+  printf '%s[%d;1H%s[2K%s[%d;%dH%s●%s' "$E" $mid "$E" "$E" $mid $c "$C_HEAD" "$C_N"; fx_sleep 0.18
+  printf '%s[%d;%dH%s•%s' "$E" $mid $c "${PALC[0]}" "$C_N"; fx_sleep 0.15
+  printf '%s[%d;%dH%s·%s' "$E" $mid $c "$C_DK" "$C_N"; fx_sleep 0.15
+  printf '%s[2J%s[H' "$E" "$E"
+}
+
 # ================================================================= UI
-bar() { # bar PCT LARGURA
-  local pct=$1 w=${2:-10} f i s=""
+bar() { # bar PCT LARGURA [quadro] -> degradê + um brilho que corre pela parte cheia
+  local pct=$1 w=${2:-10} fr=${3:-0} f i s="" sh=-1
   f=$(( pct * w / 100 ))
-  for ((i=0; i<w; i++)); do (( i < f )) && s+="█" || s+="░"; done
-  printf '%s' "$s"
+  [ "$ANIM" = 1 ] && [ $f -gt 2 ] && sh=$(( fr % (f + 8) ))
+  for ((i=0; i<w; i++)); do
+    if (( i < f )); then
+      if (( i == sh )); then s+="${C_HEAD}█"; else s+="${PALC[i*NP/w]}█"; fi
+    elif (( i == f && pct < 100 )); then s+="${PALC[NP-1]}▓"
+    else s+="${C_DK}░"; fi
+  done
+  printf '%s' "$s${C_N}"
+}
+wave() { # wave LARGURA QUADRO -> soma de duas senóides em ▁▂▃▄▅▆▇█
+  local w=$1 fr=$2 i v s=""
+  for ((i=0; i<w; i++)); do
+    v=$(( (SINE[(i + fr) % 16] + SINE[(i * 3 + fr * 2) % 16]) / 2 ))
+    s+="${PALC[i*NP/w]}${SPARK[v]}"
+  done
+  printf '%s' "$s${C_N}"
 }
 fmt_t() { printf '%02d:%02d' $(( $1 / 60 )) $(( $1 % 60 )); }
 free_kb() {
   local v; v="$(df -Pk "$HOME" 2>/dev/null | tail -n1 | tr -s ' ' | cut -d' ' -f4)"
   [[ $v =~ ^[0-9]+$ ]] || v=0; echo "$v"
 }
-banner() { # $1 = subtítulo
-  L " ${C_CY}${C_B}TERMUX SETUP${C_N} ${C_D}v$VERSION${C_N}${1:+  ${C_M}$1${C_N}}"
-  L "${C_D}${RULE}${C_N}"
-}
-splash() {
-  printf '\033[2J\033[H'; hide_cur
-  echo
-  L " ${C_CY} ▀█▀ █▀▀ █▀█ █▀▄▀█ █ █ ▀▄▀${C_N}"; sleep 0.12
-  L " ${C_M}  █  ██▄ █▀▄ █ ▀ █ █▄█ █ █${C_N}"; sleep 0.12
-  echo
-  L " ${C_D}setup v$VERSION · configure o Termux do zero${C_N}"; sleep 0.45
-  show_cur
+banner() { # $1 = título da tela
+  local t="${1^^}" n i s=""
+  n=$(( RULEW - ${#t} - 4 )); [ $n -lt 2 ] && n=2
+  for ((i=0; i<n; i++)); do s+="${PALC[(NP - 1) - i * (NP - 1) / n]}━"; done
+  L " ${GRAD_NAME}${C_DK}//${C_N}${C_W}SETUP${C_N} ${C_DK}v$VERSION${C_N}"
+  L " ${PALC[0]}━━${C_N} ${C_W}${C_B}${t}${C_N} $s${C_N}"
 }
 current_mirror() {
   grep -hE '^(deb |URIs:)' "$PREFIX/etc/apt/sources.list" \
     "$PREFIX"/etc/apt/sources.list.d/*.sources 2>/dev/null | head -n1 \
     | sed -E 's/^(deb|URIs:) +//; s/ .*//; s#^[a-z]+://##; s#/.*##'
 }
-pause() { show_cur; echo; read -r -p " Enter para voltar... " _ || true; }
+pause() { show_cur; echo; read -r -p " ${C_DK}⏎${C_N} ${C_DIM3}voltar${C_N} " _ || true; }
 
 read_key() { # define KEY: up down left right enter space esc eof ou o caractere
   local k rest
@@ -238,26 +517,33 @@ read_key() { # define KEY: up down left right enter space esc eof ou o caractere
 }
 
 menu_select() { # $1 título; usa MENU_ITEMS MENU_KEYS MENU_PRE MENU_START -> MENU_IDX (-1 = voltar)
-  local title="$1" cur="${MENU_START:-0}" n=${#MENU_ITEMS[@]} h first i k
-  local pre=${#MENU_PRE[@]}
+  local title="$1" cur="${MENU_START:-0}" n=${#MENU_ITEMS[@]} h first i k lbl prev=-1 fresh=1
+  local pre=${#MENU_PRE[@]} mw
   MENU_IDX=-1
   term_size; printf '\033[2J'; hide_cur
+  mw=$(( COLS - 7 )); [ $mw -lt 8 ] && mw=8
   while true; do
     h=$(( ROWS - 6 - pre )); [ $h -lt 3 ] && h=3; [ $h -gt $n ] && h=$n
     first=$(( cur - h / 2 )); [ $first -lt 0 ] && first=0
     [ $(( first + h )) -gt $n ] && first=$(( n - h ))
     printf '\033[H'
+    [ "$fresh" = 1 ] && [ "$ANIM" = 1 ] && FX_REVEAL=1   # 1ª vez: a tela "desce" linha a linha
     banner "$title"
     for i in "${!MENU_PRE[@]}"; do L " ${MENU_PRE[i]}"; done
     L ""
     for ((i=first; i<first+h; i++)); do
-      k="${MENU_KEYS[i]:-}"
-      if [ "$i" -eq "$cur" ]; then L " ${C_CY}▸${C_N} ${C_B}${k:+$k) }${MENU_ITEMS[i]}${C_N}"
-      else L "   ${k:+$k) }${MENU_ITEMS[i]}"; fi
+      k="${MENU_KEYS[i]:-·}"; lbl="${MENU_ITEMS[i]:0:$mw}"
+      if [ "$i" -eq "$cur" ]; then printf '%s7' "$E"; L "${BG_SEL}${C_ACC}▌ ${k}  ${C_W}${C_B}${lbl}${C_N}${BG_SEL}"
+      else L "  ${C_DK}${k}${C_N}  ${C_TX}${lbl}${C_N}"; fi
     done
     L ""
-    L " ${C_D}↑↓ mover · Enter ok · número = atalho · q sair${C_N}"
+    L " ${C_DK}↑↓ navegar · ⏎ ok · q sair${C_N}   ${PALC[0]}$(printf '%02d' $((cur+1)))${C_DK}/$(printf '%02d' "$n")${C_N}"
     printf '\033[J'
+    FX_REVEAL=0; fresh=0
+    if [ "$ANIM" = 1 ] && [ "$cur" != "$prev" ]; then   # item escolhido se "decifra"
+      fx_decrypt @ 6 "${MENU_ITEMS[cur]:0:$mw}" "${BG_SEL}${C_W}${C_B}" 5
+    fi
+    prev=$cur
     read_key
     case "$KEY" in
       up|k)   cur=$(( (cur - 1 + n) % n )) ;;
@@ -273,24 +559,30 @@ menu_select() { # $1 título; usa MENU_ITEMS MENU_KEYS MENU_PRE MENU_START -> ME
 }
 
 menu_check() { # ids...  -> 0 continuar / 1 voltar
-  local ids=("$@") cur=0 n=$# h first i m mark ptr
+  local ids=("$@") cur=0 n=$# h first i m mark fresh=1 nsel lbl
   term_size; printf '\033[2J'; hide_cur
   while true; do
     h=$(( ROWS - 6 )); [ $h -lt 3 ] && h=3; [ $h -gt $n ] && h=$n
     first=$(( cur - h / 2 )); [ $first -lt 0 ] && first=0
     [ $(( first + h )) -gt $n ] && first=$(( n - h ))
     printf '\033[H'
+    [ "$fresh" = 1 ] && [ "$ANIM" = 1 ] && FX_REVEAL=1
     banner "${CHECK_TITLE:-Personalizada}"
-    L " ${C_D}↑↓ mover · espaço marca · a todos · n nenhum${C_N}"
+    nsel=0; for m in "${ids[@]}"; do [ "${SEL[$m]:-0}" = 1 ] && nsel=$((nsel+1)); done
+    L " ${C_DK}espaço marca · a todos · n nenhum${C_N}  ${PALC[0]}◉ ${nsel}${C_DK}/${n}${C_N}"
     for ((i=first; i<first+h; i++)); do
       m="${ids[i]}"
-      if [ "${SEL[$m]:-0}" = 1 ]; then mark="${C_G}[x]${C_N}"; else mark="[ ]"; fi
-      if [ "$i" -eq "$cur" ]; then ptr="${C_CY}▸${C_N}"; else ptr=" "; fi
-      if arch_ok "$m"; then L " $ptr $mark ${MOD_NAME[$m]} ${C_D}~$(( MOD_DL[$m] * ARCH_PCT / 100 ))MB${C_N}"
-      else L " $ptr ${C_D}[-] ${MOD_NAME[$m]} (sem suporte a $ARCH)${C_N}"; fi
+      if ! arch_ok "$m"; then mark="${C_DK}⊘"
+      elif [ "${SEL[$m]:-0}" = 1 ]; then mark="${C_G}◉"; else mark="${C_DK}○"; fi
+      if arch_ok "$m"; then
+        lbl="${MOD_NAME[$m]:0:$((COLS-13))} ${C_DK}~$(( MOD_DL[$m] * ARCH_PCT / 100 ))MB"
+      else lbl="${C_DK}${MOD_NAME[$m]:0:$((COLS-28))} (sem suporte a $ARCH)"; fi
+      if [ "$i" -eq "$cur" ]; then L "${BG_SEL}${C_ACC}▌${C_N}${BG_SEL} ${mark}${C_N}${BG_SEL} ${C_W}${C_B}${lbl}${C_N}${BG_SEL}"
+      else L "  ${mark}${C_N} ${C_TX}${lbl}${C_N}"; fi
     done
-    L " ${C_D}Enter continua · q volta${C_N}"
+    L " ${C_DK}⏎ continuar · q voltar${C_N}"
     printf '\033[J'
+    FX_REVEAL=0; fresh=0
     read_key
     case "$KEY" in
       up|k)   cur=$(( (cur - 1 + n) % n )) ;;
@@ -552,9 +844,44 @@ step_ub_npm() { # $1 = pacote npm
   ub_dev "set -e; mkdir -p ~/.npm-global; npm config set prefix ~/.npm-global; export PATH=\"\$HOME/.npm-global/bin:\$PATH\"; npm install -g $(printf '%q' "$1")"
 }
 
-step_ub_upgrade() {
+step_ub_mod() { # $1 = módulo de UB_PKGS: instala no Ubuntu o que existir
   ub_has || { echo "Ubuntu não encontrado"; return 1; }
-  ub_root 'export DEBIAN_FRONTEND=noninteractive; apt-get update && apt-get -y upgrade'
+  ub_root "P=$(printf '%q' "${UB_PKGS[$1]}")"'
+export DEBIAN_FRONTEND=noninteractive
+# só baixa as listas se tiverem mais de 1 hora
+[ -n "$(find /var/lib/apt/lists -maxdepth 1 -name "*Packages*" -mmin -60 2>/dev/null | head -n1)" ] || apt-get update
+list=""; miss=""
+for tok in $P; do
+  ok=""; IFS="|"; for alt in $tok; do apt-cache show "$alt" >/dev/null 2>&1 && { ok=$alt; break; }; done; unset IFS
+  if [ -n "$ok" ]; then list="$list $ok"; else miss="$miss $tok"; fi
+done
+[ -n "$miss" ] && echo "[aviso] indisponível no Ubuntu:$miss"
+[ -z "$list" ] && exit 0
+echo "Instalando no Ubuntu:$list"
+apt-get install -y --no-install-recommends $list'
+}
+
+step_ub_pyvenv() { # venv pronto para o usuário (o Ubuntu novo bloqueia "pip install" global)
+  ub_has || { echo "Ubuntu não encontrado"; return 1; }
+  ub_dev 'set -e
+[ -d ~/venv ] || python3 -m venv ~/venv
+~/venv/bin/pip install -q --upgrade pip
+grep -q "alias venv=" ~/.bashrc 2>/dev/null || echo "alias venv=\"source ~/venv/bin/activate\"" >> ~/.bashrc
+pipx ensurepath >/dev/null 2>&1 || true
+echo "venv: ~/venv ($(~/venv/bin/python --version)) · ative com: venv"'
+}
+
+step_ub_upgrade() { # atualização completa do Ubuntu, com reparo e limpeza
+  ub_has || { echo "Ubuntu não encontrado"; return 1; }
+  ub_root 'export DEBIAN_FRONTEND=noninteractive
+O="-y -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold"
+dpkg --configure -a || true
+apt-get update || exit 1
+apt-get $O --fix-broken install || true
+apt-get $O full-upgrade || exit 1
+apt-get -y autoremove --purge
+apt-get clean
+echo "Ubuntu atualizado: $(grep PRETTY_NAME /etc/os-release | cut -d= -f2 | tr -d \")"'
 }
 
 step_ia_update() {
@@ -563,6 +890,8 @@ step_ia_update() {
 command -v claude >/dev/null 2>&1 && claude update
 command -v codex  >/dev/null 2>&1 && npm install -g @openai/codex@latest
 command -v gemini >/dev/null 2>&1 && npm install -g @google/gemini-cli@latest
+[ -x ~/venv/bin/pip ] && ~/venv/bin/pip install -q --upgrade pip
+command -v pipx >/dev/null 2>&1 && pipx upgrade-all
 true'
 }
 
@@ -592,7 +921,7 @@ EOS
   printf '#!/data/data/com.termux/files/usr/bin/bash\nexec proot-distro login %s\n' "$UB" > "$HOME/bin/ubuntu-root"
   cat > "$HOME/bin/ia-update" <<'EOS'
 #!/data/data/com.termux/files/usr/bin/bash
-proot-distro login __UB__ -- bash -lc 'export DEBIAN_FRONTEND=noninteractive; apt-get update && apt-get -y upgrade'
+proot-distro login __UB__ -- bash -lc 'export DEBIAN_FRONTEND=noninteractive; O="-y -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold"; apt-get update && apt-get $O full-upgrade && apt-get -y autoremove --purge && apt-get clean'
 "$HOME/bin/ia-run" bash -lc 'command -v claude >/dev/null && claude update; command -v codex >/dev/null && npm install -g @openai/codex@latest; command -v gemini >/dev/null && npm install -g @google/gemini-cli@latest; true'
 EOS
   sed -i "s/__UB_USER__/$UB_USER/g; s/__UB__/$UB/g" "$HOME/bin/ia-run" "$HOME/bin/ia-update"
@@ -607,12 +936,12 @@ step_commands() {
 export DEBIAN_FRONTEND=noninteractive
 O=(-y -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold)
 apt-get update && apt-get full-upgrade "${O[@]}" && apt-get autoremove -y
-echo "✔ Tudo atualizado."
+echo "✓ Tudo atualizado."
 EOS
   cat > "$HOME/bin/limpar" <<'EOS'
 #!/data/data/com.termux/files/usr/bin/bash
 apt-get autoremove -y && apt-get clean
-echo "✔ Cache limpo."
+echo "✓ Cache limpo."
 EOS
   cat > "$HOME/bin/info" <<'EOS'
 #!/data/data/com.termux/files/usr/bin/bash
@@ -639,7 +968,7 @@ case "$t" in
   c)      printf '#include <stdio.h>\nint main(){puts("ola, Termux!");return 0;}\n' > main.c ;;
 esac
 echo "# $n" > README.md
-echo "✔ Projeto criado em $(pwd)"
+echo "✓ Projeto criado em $(pwd)"
 EOS
   [ -f "$SELF" ] && cp "$SELF" "$HOME/bin/termux-setup"
   chmod +x "$HOME"/bin/* 2>/dev/null
@@ -776,24 +1105,25 @@ draw_dash() { # $1 = índice do spinner
   shown=$(( DONE + 1 )); [ $shown -gt $TOTAL ] && shown=$TOTAL
   printf '\033[H'
   banner "$DASH_TITLE"
-  L " ${C_G}$(bar "$pct" "$bw")${C_N} ${C_B}${pct}%${C_N}"
-  L " ${C_D}passo ${shown}/${TOTAL} · $(fmt_t "$el")${eta:+ · ~$eta restam}${C_N}"
+  L " $(bar "$pct" "$bw" "$i") ${C_W}${C_B}${pct}%${C_N}"
+  L " $(wave "$bw" "$i") ${C_DK}λ${C_N}"
+  L " ${C_DIM3}passo ${C_W}${shown}${C_DK}/${TOTAL}${C_DIM3} · $(fmt_t "$el")${eta:+ · ~$eta restam}${C_N}"
   L ""
   lbl="${PLAN_LABEL[DONE]:-}"
-  L " ${C_CY}${SPIN[i%10]}${C_N} ${C_B}${lbl:0:$maxl}${C_N}"
-  L "   ${C_D}${LIVE:0:$((COLS-5))}${C_N}"
+  L " ${PALC[i%NP]}${SPIN[i%10]}${C_N} ${C_W}${C_B}${lbl:0:$maxl}${C_N}"
+  L "   ${C_DK}0x$(printf '%04X' $(( (i * 40503) & 0xFFFF ))) ›${C_N} ${C_DIM3}${LIVE:0:$((COLS-14))}${C_N}"
   L ""
-  h=$(( ROWS - 10 )); [ $h -lt 3 ] && h=3; [ $h -gt 16 ] && h=16; [ $h -gt $n ] && h=$n
+  h=$(( ROWS - 11 )); [ $h -lt 3 ] && h=3; [ $h -gt 16 ] && h=16; [ $h -gt $n ] && h=$n
   first=$(( DONE - h / 2 )); [ $first -lt 0 ] && first=0
   [ $(( first + h )) -gt $n ] && first=$(( n - h ))
   for ((j=first; j<first+h; j++)); do
     lbl="${PLAN_LABEL[j]:0:$((COLS-14))}"
     if [ "$j" -lt "$DONE" ]; then
       t="${RES_TIME[j]:-}"
-      if [ "${RES_STAT[j]:-}" = OK ]; then L " ${C_G}✔${C_N} ${lbl} ${C_D}${t}${C_N}"
-      else L " ${C_R}✘${C_N} ${lbl} ${C_D}${t}${C_N}"; fi
-    elif [ "$j" -eq "$DONE" ]; then L " ${C_CY}▶${C_N} ${C_B}${lbl}${C_N} ${C_D}$(( SECONDS - STEP_T0 ))s${C_N}"
-    else L " ${C_D}· ${lbl}${C_N}"; fi
+      if [ "${RES_STAT[j]:-}" = OK ]; then L " ${C_G}✓${C_N} ${C_DIM3}${lbl}${C_N} ${C_DK}${t}${C_N}"
+      else L " ${C_R}✗${C_N} ${C_TX}${lbl}${C_N} ${C_DK}${t}${C_N}"; fi
+    elif [ "$j" -eq "$DONE" ]; then L "${BG_SEL}${C_ACC}▌${PALC[(i/2)%NP]}▶${C_N}${BG_SEL} ${C_W}${C_B}${lbl}${C_N}${BG_SEL} ${C_DIM3}$(( SECONDS - STEP_T0 ))s"
+    else L " ${C_DK}· ${lbl}${C_N}"; fi
   done
   printf '\033[J'
 }
@@ -895,22 +1225,24 @@ write_summary() {
 }
 
 show_card() {
-  local i col d
+  local i col d bw icon
   term_size; printf '\033[2J\033[H'
   banner "Resultado"
   case "$STATUS_TXT" in
-    COMPLETO) col="$C_G" ;;
-    INCOMPLETO) col="$C_R" ;;
-    *) col="$C_Y" ;;
+    COMPLETO) col="$C_G"; icon="◉" ;;
+    INCOMPLETO) col="$C_R"; icon="■" ;;
+    *) col="$C_Y"; icon="▲" ;;
   esac
-  L " ${col}${C_B}${STATUS_TXT}${C_N}"
-  L ""
-  L " ${C_G}✔ ${N_OK} ok${C_N}   ${C_R}✘ ${N_FAIL} falhas${C_N}   ${C_Y}· ${N_PEND} pendentes${C_N}"
-  L " ${C_D}tempo $(fmt_t "$ELAPSED") · espaço usado ~${USED_MB} MB · livre $(( $(free_kb) / 1024 )) MB${C_N}"
+  bw=$(( ${#STATUS_TXT} + 10 ))
+  L " ${col}╭$(rep '─' $bw)╮${C_N}"
+  L " ${col}│${C_N}  ${col}${icon}${C_N}  $(printf '%*s' ${#STATUS_TXT} '')     ${col}│${C_N}"
+  L " ${col}╰$(rep '─' $bw)╯${C_N}"
+  L " ${C_G}✓ ${N_OK} ok${C_N}   ${C_R}✗ ${N_FAIL} falhas${C_N}   ${C_Y}· ${N_PEND} pendentes${C_N}"
+  L " ${C_DIM3}tempo ${C_W}$(fmt_t "$ELAPSED")${C_DIM3} · +${USED_MB} MB · livre $(( $(free_kb) / 1024 )) MB${C_N}"
   L " ${C_D}espelho: $(current_mirror)${C_N}"
   for ((i=0; i<TOTAL; i++)); do
     case "${RES_STAT[i]}" in
-      FALHOU) L " ${C_R}✘${C_N} ${PLAN_LABEL[i]:0:$((COLS-6))}" ;;
+      FALHOU) L " ${C_R}✗${C_N} ${PLAN_LABEL[i]:0:$((COLS-6))}" ;;
       INTERROMPIDO) L " ${C_Y}■${C_N} ${PLAN_LABEL[i]:0:$((COLS-6))} (interrompido)" ;;
     esac
   done
@@ -926,21 +1258,23 @@ show_card() {
     L "  ${C_D}já está instalado e continua.${C_N}"
   else
     L " ${C_B}Próximos passos${C_N}"
-    L "  ${C_CY}source ~/.bashrc${C_N} ${C_D}(ou feche e abra o Termux)${C_N}"
+    L "  ${C_CY}source ~/.bashrc${C_N} ${C_D}(ou reabra o Termux)${C_N}"
     [ "${SEL[claude]:-0}" = 1 ] && L "  ${C_CY}claude${C_N}  ${C_D}login pelo navegador${C_N}"
     [ "${SEL[codex]:-0}" = 1 ]  && L "  ${C_CY}codex${C_N}   ${C_D}Sign in with ChatGPT${C_N}"
     [ "${SEL[gemini]:-0}" = 1 ] && L "  ${C_CY}gemini${C_N}  ${C_D}login Google ou GEMINI_API_KEY${C_N}"
     [ "${SEL[ubuntu]:-0}${SEL[claude]:-0}${SEL[codex]:-0}${SEL[gemini]:-0}" != "0000" ] && \
       L "  ${C_CY}ubuntu${C_N}  ${C_D}shell Ubuntu na pasta atual${C_N}"
     { [ "${SEL[keys]:-0}" = 1 ] || [ "${SEL[theme]:-0}" = 1 ] || [ "${SEL[font]:-0}" = 1 ]; } && \
-      L "  ${C_D}Barra/tema/fonte: se não mudarem, feche e abra o Termux${C_N}"
-    [ "${SEL[dev2]:-0}" = 1 ] && L "  ${C_CY}GitHub${C_N} ${C_D}use o menu GitHub (entrar com token)${C_N}"
+      L "  ${C_D}tema/fonte não mudou? reabra o Termux${C_N}"
+    [ "${SEL[dev2]:-0}" = 1 ] && L "  ${C_CY}GitHub${C_N} ${C_D}menu 6: entrar com token${C_N}"
     L "  ${C_CY}termux-setup${C_N} ${C_D}reabre este menu${C_N}"
   fi
   L ""
   L " ${C_D}log: ${SUMMARY/#$HOME/~}${C_N}"
   [ -d "$HOME/storage/downloads" ] && L " ${C_D}(cópia em Downloads)${C_N}"
   printf '\033[J'
+  # o status "se decifra" dentro da caixa (linha 4, depois de "│  ◉  ")
+  [ "$INTERRUPTED" = 1 ] || fx_decrypt 4 8 "$STATUS_TXT" "${col}${C_B}" 14
 }
 
 notify_done() {
@@ -993,7 +1327,8 @@ execute_plan() { # [quiet]
 clear_sel()  { local m; for m in "${MOD_ORDER[@]}"; do SEL[$m]=0; done; }
 select_all() { local m; for m in "${MOD_ORDER[@]}"; do SEL[$m]=1; done; SEL[root]=0; }
 select_dev() { local m; clear_sel; for m in base build python node extras term dev2 api hush theme font keys; do SEL[$m]=1; done; }
-select_ia()  { local m; clear_sel; for m in base api ubuntu claude codex gemini; do SEL[$m]=1; done; }
+select_ia()  { local m; clear_sel; for m in base api ubuntu ubtools claude codex gemini; do SEL[$m]=1; done; }
+select_ub_all() { local m; clear_sel; for m in base api ubuntu $UB_MODS claude codex gemini; do SEL[$m]=1; done; }
 
 add_look_steps() {
   local any=0
@@ -1048,18 +1383,23 @@ build_plan() { # modo: full | update
     for m in "${MOD_ORDER[@]}"; do
       [ "${SEL[$m]:-0}" = 1 ] || continue
       case "$m" in
-        ubuntu|claude|codex|gemini|hush|theme|font|keys|root) ;;
+        ubuntu|ub*|claude|codex|gemini|hush|theme|font|keys|root) ;;
         *) add_step "${MOD_NAME[$m]}" install_mod "$m" "${MOD_W[$m]}" ;;
       esac
     done
     [ "${SEL[python]:-0}" = 1 ] && add_step "Python: venv + libs" step_pyvenv "" 25
     [ "${SEL[node]:-0}" = 1 ]   && add_step "Node: yarn + typescript" step_npm "" 15
-    for m in ubuntu claude codex gemini; do [ "${SEL[$m]:-0}" = 1 ] && need_ub=1; done
-    for m in codex gemini; do [ "${SEL[$m]:-0}" = 1 ] && need_node=1; done
+    for m in ubuntu $UB_MODS claude codex gemini; do [ "${SEL[$m]:-0}" = 1 ] && need_ub=1; done
+    for m in ubnode codex gemini; do [ "${SEL[$m]:-0}" = 1 ] && need_node=1; done
     if [ $need_ub = 1 ]; then
+      SEL[ubuntu]=1
       add_step "Ubuntu: proot-distro" step_proot_pkgs "" 10
       add_step "Ubuntu ${UBUNTU_VERSIONS%% *} LTS: instalar" step_ubuntu_install "" 90
       add_step "Ubuntu: base + usuário $UB_USER" step_ubuntu_base "" 60
+      for m in ubtools ubbuild ubpy ubjava; do
+        [ "${SEL[$m]:-0}" = 1 ] && add_step "${MOD_NAME[$m]}" step_ub_mod "$m" "${MOD_W[$m]}"
+      done
+      [ "${SEL[ubpy]:-0}" = 1 ] && add_step "Ubuntu: venv do Python" step_ub_pyvenv "" 15
       [ $need_node = 1 ] && add_step "Ubuntu: Node.js LTS" step_ubuntu_node "" 45
       [ "${SEL[claude]:-0}" = 1 ] && add_step "Claude Code (oficial)" step_claude "" 50
       [ "${SEL[codex]:-0}" = 1 ]  && add_step "Codex CLI (OpenAI)" step_ub_npm "@openai/codex" 30
@@ -1084,6 +1424,7 @@ est_totals() {
     EST_DL=$(( EST_DL + MOD_DL[$m] )); EST_DISK=$(( EST_DISK + MOD_DISK[$m] ))
   done
   for m in codex gemini; do [ "${SEL[$m]:-0}" = 1 ] && need_node=1; done
+  [ "${SEL[ubnode]:-0}" = 1 ] && need_node=0   # já contado no módulo
   [ $need_node = 1 ] && { EST_DL=$(( EST_DL + 30 )); EST_DISK=$(( EST_DISK + 150 )); }
   EST_DL=$(( EST_DL * ARCH_PCT / 100 )); EST_DISK=$(( EST_DISK * ARCH_PCT / 100 ))
   return 0
@@ -1149,8 +1490,8 @@ menu_mirror() {
   add_step "apt update" step_update "" 5
   execute_plan quiet
   term_size; printf '\033[2J\033[H'; banner "Espelhos"
-  if [ "${RES_STAT[1]:-}" = OK ]; then L " ${C_G}✔${C_N} Espelho aplicado: ${url#*://}"
-  else L " ${C_R}✘${C_N} apt update falhou (veja o log)"; fi
+  if [ "${RES_STAT[1]:-}" = OK ]; then L " ${C_G}✓${C_N} Espelho aplicado: ${url#*://}"
+  else L " ${C_R}✗${C_N} apt update falhou (veja o log)"; fi
   L " ${C_D}log: ${LOG/#$HOME/~}${C_N}"
   pause
 }
@@ -1165,17 +1506,17 @@ verify_install() {
         java) v="$(timeout 8 java -version 2>&1 | head -n1)" ;;
         *)    v="$(timeout 5 "$c" --version 2>&1 | head -n1)" ;;
       esac
-      L " ${C_G}✔${C_N} $(printf '%-8s' "$c") ${C_D}${v:0:$((COLS-14))}${C_N}"
+      L " ${C_G}✓${C_N} $(printf '%-8s' "$c") ${C_D}${v:0:$((COLS-14))}${C_N}"
     else
       L " ${C_D}· $(printf '%-8s' "$c") não instalado${C_N}"
     fi
   done
   if command -v proot-distro >/dev/null 2>&1 && ub_has; then
     L ""; L " ${C_B}Ubuntu (proot)${C_N}"
-    out="$(ub_dev 'export PATH="$HOME/.local/bin:$HOME/.npm-global/bin:$PATH"; for c in node claude codex gemini; do if command -v $c >/dev/null 2>&1; then echo "OK $c $($c --version 2>&1 | head -n1)"; else echo "NO $c"; fi; done' 2>/dev/null)"
+    out="$(ub_dev 'export PATH="$HOME/.local/bin:$HOME/.npm-global/bin:$PATH"; for c in python3 node npm java gcc cmake git rg claude codex gemini; do if command -v $c >/dev/null 2>&1; then echo "OK $c $($c --version 2>&1 | head -n1)"; else echo "NO $c"; fi; done' 2>/dev/null)"
     while read -r st name rest; do
       [ -n "$name" ] || continue
-      if [ "$st" = OK ]; then L " ${C_G}✔${C_N} $(printf '%-8s' "$name") ${C_D}${rest:0:$((COLS-14))}${C_N}"
+      if [ "$st" = OK ]; then L " ${C_G}✓${C_N} $(printf '%-8s' "$name") ${C_D}${rest:0:$((COLS-14))}${C_N}"
       else L " ${C_D}· $(printf '%-8s' "$name") não instalado${C_N}"; fi
     done <<< "$out"
   else
@@ -1252,7 +1593,7 @@ run_undo() {
 run_update_all() {
   clear_sel; build_plan update
   if command -v proot-distro >/dev/null 2>&1 && ub_has; then
-    add_step "Ubuntu: atualizar pacotes" step_ub_upgrade "" 40
+    add_step "Ubuntu: atualizar tudo" step_ub_upgrade "" 40
     add_step "Atualizar Claude/Codex/Gemini" step_ia_update "" 40
   fi
   if confirm_run; then execute_plan; fi
@@ -1266,25 +1607,29 @@ run_repair() {
 }
 
 menu_ia() {
-  local m
   while true; do
-    MENU_ITEMS=("Instalar tudo (Ubuntu + 3 IAs)" "Escolher quais instalar" "Atualizar Ubuntu e IAs" "Entrar no Ubuntu (shell)" "Voltar")
-    MENU_KEYS=(1 2 3 4 0)
-    MENU_PRE=("${C_D}Roda dentro do Ubuntu (proot), que é Linux${C_N}"
-              "${C_D}ARM64, suportado pelo Claude Code.${C_N}"
-              "${C_D}O login de cada IA é feito no navegador.${C_N}")
-    menu_select "IA & Ubuntu"
+    MENU_ITEMS=("Instalar tudo (linguagens + IAs)" "Escolher o que instalar" "Atualizar Ubuntu (+ limpeza)"
+                "Atualizar só as IAs" "Atualizar Ubuntu + IAs" "Entrar no Ubuntu (shell)" "Voltar")
+    MENU_KEYS=(1 2 3 4 5 6 0)
+    MENU_PRE=("${C_DIM3}Ubuntu real dentro do Termux (proot)${C_N}"
+              "${C_DIM3}Python · Node · Java · C/C++ · IAs${C_N}"
+              "${C_DK}login das IAs: navegador, no 1º uso${C_N}")
+    menu_select "Ubuntu & IA"
     case "$MENU_IDX" in
-      0) select_ia; run_plan_flow ;;
-      1) clear_sel; SEL[base]=1; SEL[api]=1
-         CHECK_TITLE="IA & Ubuntu"
-         if menu_check ubuntu claude codex gemini; then CHECK_TITLE=""; run_plan_flow; fi
+      0) select_ub_all; run_plan_flow ;;
+      1) clear_sel; SEL[base]=1; SEL[api]=1; SEL[ubuntu]=1; SEL[ubtools]=1
+         CHECK_TITLE="Ubuntu & IA"
+         if menu_check ubuntu $UB_MODS claude codex gemini; then CHECK_TITLE=""; run_plan_flow; fi
          CHECK_TITLE="" ;;
-      2) reset_plan
-         add_step "Ubuntu: atualizar pacotes" step_ub_upgrade "" 40
-         add_step "Atualizar Claude/Codex/Gemini" step_ia_update "" 40
+      2|3|4)
+         if ! { command -v proot-distro >/dev/null 2>&1 && ub_has; }; then
+           term_size; printf '\033[2J\033[H'; banner "Ubuntu"; L " ${C_Y}Ubuntu ainda não instalado.${C_N}"; pause; continue
+         fi
+         reset_plan
+         [ "$MENU_IDX" != 3 ] && add_step "Ubuntu: atualizar tudo" step_ub_upgrade "" 40
+         [ "$MENU_IDX" != 2 ] && add_step "Atualizar Claude/Codex/Gemini" step_ia_update "" 40
          clear_sel; execute_plan ;;
-      3) term_size; printf '\033[2J\033[H'; show_cur
+      5) term_size; printf '\033[2J\033[H'; show_cur
          if command -v proot-distro >/dev/null 2>&1 && ub_has; then
            proot-distro login "$UB" --user "$UB_USER" -- bash -l
          else
@@ -1321,7 +1666,7 @@ menu_github() {
     command -v gh >/dev/null 2>&1 || { L " ${C_R}gh indisponível.${C_N}"; pause; return; }
   fi
   if gh auth status >/dev/null 2>&1; then
-    L " ${C_G}✔ Já autenticado:${C_N}"; gh auth status 2>&1 | head -n 6
+    L " ${C_G}✓ Já autenticado:${C_N}"; gh auth status 2>&1 | head -n 6
     read -r -p " Entrar de novo com outro token? [s/N] " r || true
     [[ $r =~ ^[sSyY] ]] || { pause; return; }
   fi
@@ -1335,20 +1680,24 @@ menu_github() {
   read -rsp " Token: " tok || true; echo
   if [ -z "$tok" ]; then L " Cancelado."; pause; return; fi
   if printf '%s\n' "$tok" | gh auth login --hostname github.com --git-protocol https --with-token; then
-    gh auth setup-git && L " ${C_G}✔ Git configurado para usar o gh${C_N}"
+    gh auth setup-git && L " ${C_G}✓ Git configurado para usar o gh${C_N}"
     gh auth status 2>&1 | head -n 6
   else
-    L " ${C_R}✘ Token recusado.${C_N} Confira os escopos e a validade."
+    L " ${C_R}✗ Token recusado.${C_N} Confira os escopos e a validade."
   fi
   tok=""; pause
 }
 
 main_menu() {
   while true; do
-    MENU_ITEMS=("Instalação completa (tudo + IA)" "Dev padrão (recomendado)" "IA & Ubuntu (Claude, Codex, Gemini)" "Aparência (teclas, tema, fonte)" "Personalizada (escolher módulos)" "GitHub (entrar com token)" "Atualizar tudo (Termux + Ubuntu + IAs)" "Espelhos: testar / trocar" "Reparar pacotes quebrados" "Verificar instalação" "Ver último log" "Desfazer (restaurar original)" "Sair")
+    MENU_ITEMS=("Instalação completa (tudo + IA)" "Dev padrão (recomendado)" "Ubuntu & IA (linguagens + IAs)" "Aparência (teclas, tema, fonte)" "Personalizada (escolher módulos)" "GitHub (entrar com token)" "Atualizar tudo (Termux+Ubuntu+IA)" "Espelhos: testar / trocar" "Reparar pacotes quebrados" "Verificar instalação" "Ver último log" "Desfazer (restaurar original)" "Sair")
     MENU_KEYS=(1 2 3 4 5 6 7 8 9 v l d 0)
-    MENU_PRE=("${C_D}Android $(getprop ro.build.version.release 2>/dev/null || echo ?) · $(getprop ro.product.model 2>/dev/null) · $(uname -m)${C_N}"
-              "${C_D}livre $(( $(free_kb) / 1024 )) MB · espelho: $(current_mirror | cut -c1-28)${C_N}")
+    MENU_PRE=()
+    if [ "$ROWS" -ge 30 ] && [ "$COLS" -ge 38 ]; then MENU_PRE=("${LOGO_S_C[@]}" ""); fi
+    local dev mir
+    dev="Android $(getprop ro.build.version.release 2>/dev/null || echo ?) · $(getprop ro.product.model 2>/dev/null) · $ARCH"
+    mir="$(( $(free_kb) / 1024 )) MB livres · $(current_mirror)"
+    MENU_PRE+=("${C_DIM3}${dev:0:$((COLS-2))}${C_N}" "${C_DK}${mir:0:$((COLS-2))}${C_N}")
     menu_select "Menu principal"
     case "$MENU_IDX" in
       0) select_all; run_plan_flow ;;
@@ -1367,8 +1716,9 @@ main_menu() {
       *) break ;;
     esac
   done
+  fx_outro
   printf '\033[2J\033[H'
-  echo " Até mais! Logs em ~/termux-setup-logs"
+  echo " ${C_DK}conexão encerrada ·${C_N} ${C_DIM3}logs em ~/termux-setup-logs${C_N}"
 }
 
 # ================================================================= MODO TESTE
@@ -1401,7 +1751,7 @@ main() {
     ia)        select_ia;  run_plan_flow ;;
     atualizar) run_update_all ;;
     desfazer)  run_undo ;;
-    *)         splash; main_menu ;;
+    *)         fx_splash; main_menu ;;
   esac
 }
 main "$@"
