@@ -5,6 +5,8 @@ package app
 import (
 	"context"
 	"os"
+	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 
@@ -14,6 +16,7 @@ import (
 	"github.com/Rafael-devR/termux-setup.sh/internal/mirror"
 	"github.com/Rafael-devR/termux-setup.sh/internal/sys"
 	"github.com/Rafael-devR/termux-setup.sh/internal/ubuntu"
+	"github.com/Rafael-devR/termux-setup.sh/internal/update"
 	"github.com/Rafael-devR/termux-setup.sh/modules"
 )
 
@@ -29,6 +32,8 @@ type Services struct {
 	Cat    *catalog.Catalog
 	Reg    engine.Registry
 	Anim   bool // animações ligadas
+	// Updater procura/instala versões novas do próprio termux-setup.
+	Updater *update.Updater
 }
 
 // Config escolhe o modo.
@@ -60,6 +65,20 @@ func New(cfg Config) (*Services, error) {
 	} else {
 		s.Runner = sys.ExecRunner{}
 		s.Fetch = sys.CurlFetcher{Run: s.Runner}
+	}
+	exe, _ := os.Executable()
+	if r, err := filepath.EvalSymlinks(exe); err == nil {
+		exe = r
+	}
+	s.Updater = &update.Updater{Run: s.Runner, Fetch: s.Fetch, Current: Version, Work: env.Work, Exe: exe,
+		Cache: filepath.Join(env.Home, ".cache", "termux-setup", "update.json"),
+		Asset: runtime.GOOS + "_" + runtime.GOARCH, DryRun: cfg.DryRun}
+	if cfg.DryRun {
+		s.Updater.Current = "v1.0.0" // no teste a versão é "dev": finge uma antiga p/ mostrar o fluxo
+		s.Updater.Fake = "v1.0.0"
+		if v := os.Getenv("TSETUP_FAKE_UPDATE"); v != "" {
+			s.Updater.Fake = v
+		}
 	}
 	return s, nil
 }

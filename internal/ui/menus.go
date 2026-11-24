@@ -7,6 +7,7 @@ import (
 	"slices"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/Rafael-devR/termux-setup.sh/internal/app"
 	"github.com/Rafael-devR/termux-setup.sh/internal/catalog"
 	"github.com/Rafael-devR/termux-setup.sh/internal/plan"
 	"github.com/Rafael-devR/termux-setup.sh/internal/ubuntu"
@@ -29,6 +30,9 @@ func MainMenu() *Menu {
 			pre = append(pre,
 				paint(fit("Android "+i.Android+" · "+i.Model+" · "+i.Arch, c.W-2), Dim),
 				paint(fit(humanMB(c.S.FreeMB())+" livres · "+c.S.Mirror(), c.W-2), Faint))
+			if c.Update != "" {
+				pre = append(pre, "", sgr(Ink, Yellow, true)+" ↑ "+c.Update+" disponível "+reset+paint("  (você usa "+app.Version+") · tecle ", Dim)+bold("u", White))
+			}
 			return pre
 		},
 		OnBack: func(*Ctx) tea.Cmd { return Push(&Outro{}) },
@@ -64,6 +68,8 @@ func MainMenu() *Menu {
 					return Push(NewConfirm(plan.Undo(), []string{"Volta ao estado de antes do 1º uso:",
 						"espelho, tema/fonte/teclas e aliases.", "Pacotes e o Ubuntu NÃO são removidos."}))
 				}},
+			{Key: "u", Label: "Atualizar o termux-setup", Hint: "Procura versão nova no GitHub e instala (SHA256 conferido).",
+				Run: func(*Ctx) tea.Cmd { return Push(NewAppUpdate()) }},
 			{Key: "0", Label: "Sair", Run: func(*Ctx) tea.Cmd { return Push(&Outro{}) }},
 		},
 	}

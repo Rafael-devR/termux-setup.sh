@@ -5,6 +5,7 @@
 package ui
 
 import (
+	"context"
 	"math/rand/v2"
 	"strings"
 	"time"
@@ -23,6 +24,8 @@ type Ctx struct {
 	S     *app.Services
 	RNG   *rand.Rand
 	Auto  bool // --sim: sem perguntas
+	// Update é a versão nova achada em segundo plano ("" = em dia/ainda não sabe).
+	Update string
 }
 
 // Screen é uma tela.
@@ -50,6 +53,7 @@ type (
 	popMsg     struct{}
 	replaceMsg struct{ s Screen }
 	rootMsg    struct{}
+	updateMsg  struct{ version string }
 )
 
 // Push abre uma tela por cima.
@@ -93,7 +97,22 @@ func (m *Model) layout() {
 func (m *Model) top() Screen { return m.stack[len(m.stack)-1] }
 
 func (m *Model) Init() tea.Cmd {
-	return tea.Batch(m.top().Init(m.ctx), m.ensureTick())
+	return tea.Batch(m.top().Init(m.ctx), m.ensureTick(), m.checkUpdate())
+}
+
+// checkUpdate procura versão nova em segundo plano (no máx. a cada 12 h);
+// qualquer erro (sem internet) é ignorado em silêncio.
+func (m *Model) checkUpdate() tea.Cmd {
+	if m.ctx.S == nil || m.ctx.S.Updater == nil || m.ctx.Auto {
+		return nil
+	}
+	u := m.ctx.S.Updater
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		defer cancel()
+		v, _ := u.Check(ctx, false)
+		return updateMsg{v}
+	}
 }
 
 func tick() tea.Cmd {
@@ -149,6 +168,9 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Batch(tea.ClearScreen, cmd, m.ensureTick())
 		}
 		return m, tea.Batch(cmd, m.ensureTick())
+	case updateMsg:
+		m.ctx.Update = msg.version
+		return m, nil
 	case tickMsg:
 		m.ticking = false
 		m.ctx.Frame++
