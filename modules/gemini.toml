@@ -19,7 +19,7 @@ disk_mb = 250
 [[steps]]
 label = "Gemini CLI (Google)"
 action = "ub-npm"
-args = ["@google/gemini-cli"]
+args = ["@google/gemini-cli", "gemini"]  # pacote e o comando que ele instala (conferido no fim)
 seconds = 35
 
 [[finalize]]

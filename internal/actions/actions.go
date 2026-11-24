@@ -274,7 +274,7 @@ var (
 		return ubuntu.AsUser(ctx, s, "claude", map[string]string{"URL": ubuntu.ClaudeURL})
 	})
 	ubNpm = withUbuntu(func(ctx context.Context, s *engine.StepCtx) error {
-		return ubuntu.AsUser(ctx, s, "npm", map[string]string{"PKG": arg(s, 0)})
+		return ubuntu.AsUser(ctx, s, "npm", map[string]string{"PKG": arg(s, 0), "CMD": arg(s, 1)})
 	})
 	iaUpdate = withUbuntu(func(ctx context.Context, s *engine.StepCtx) error {
 		return ubuntu.AsUser(ctx, s, "ia-update", nil)

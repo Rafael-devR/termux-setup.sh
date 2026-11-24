@@ -20,7 +20,7 @@ disk_mb = 160
 [[steps]]
 label = "OpenCode"
 action = "ub-npm"
-args = ["opencode-ai"]
+args = ["opencode-ai", "opencode"]  # pacote e o comando que ele instala (conferido no fim)
 seconds = 35
 
 [[finalize]]

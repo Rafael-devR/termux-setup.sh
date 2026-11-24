@@ -20,7 +20,7 @@ disk_mb = 120
 [[steps]]
 label = "Codex CLI (OpenAI)"
 action = "ub-npm"
-args = ["@openai/codex"]
+args = ["@openai/codex", "codex"]  # pacote e o comando que ele instala (conferido no fim)
 seconds = 30
 
 [[finalize]]
