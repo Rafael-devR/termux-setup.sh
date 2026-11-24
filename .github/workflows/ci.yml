@@ -11,8 +11,8 @@ jobs:
   teste:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
       - name: Formatação (gofmt)
@@ -39,14 +39,12 @@ jobs:
   compilar:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
+      # Só confere que os 4 alvos compilam. Os binários não são enviados
+      # como artefato (gastaria a cota de armazenamento do Actions); eles
+      # saem publicados na release, ao enviar uma tag vX.Y.Z.
       - name: Compilar todos os alvos
         run: scripts/build-release.sh "ci-${GITHUB_SHA::7}"
-      - uses: actions/upload-artifact@v4
-        with:
-          name: termux-setup-binarios
-          path: dist/*
-          retention-days: 14
