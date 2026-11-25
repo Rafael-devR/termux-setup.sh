@@ -9,28 +9,41 @@ import (
 	"github.com/charmbracelet/x/ansi"
 )
 
-// Paleta. Grad é o degradê da marca (ciano → azul → violeta → magenta).
+// Paleta "carvão": superfícies grafite, texto em tons de osso e um único
+// acento latão. As cores de estado são dessaturadas de propósito (nada de
+// neon): o destaque vem do contraste e da hierarquia, não da saturação.
 var (
-	Grad   = fx.Gradient{fx.Hex("#00F0FF"), fx.Hex("#2E9BFF"), fx.Hex("#7B61FF"), fx.Hex("#C04DFF"), fx.Hex("#FF3EC8")}
-	White  = fx.Hex("#F2F4FF")
-	Text   = fx.Hex("#C9CEDC")
-	Dim    = fx.Hex("#8A90A4")
-	Faint  = fx.Hex("#555B6E")
-	Ghost  = fx.Hex("#2C3140")
-	Green  = fx.Hex("#4DFFA6")
-	Red    = fx.Hex("#FF5C7A")
-	Yellow = fx.Hex("#FFD166")
-	Accent = fx.Hex("#FF3EC8")
-	Cyan   = fx.Hex("#00F0FF")
-	SelBG  = fx.Hex("#1B1F2E")
-	// Superfícies (estilo OpenCode): sem bordas de caixa, só camadas de fundo.
-	BG     = fx.Hex("#0A0C12") // fundo da tela
-	Panel  = fx.Hex("#12151D") // painel / diálogo
-	Raised = fx.Hex("#1B202C") // cartão sobre o painel
-	Select = fx.Hex("#62D0FF") // linha selecionada (preenchida)
-	Ink    = fx.Hex("#0A0C12") // texto escuro sobre Select
-	Purple = fx.Hex("#A78BFA") // títulos de seção
-	Matrix = fx.Hex("#1FE07A")
+	// Superfícies (camadas de fundo, sem bordas de caixa).
+	BG     = fx.Hex("#0E0F11") // fundo da tela
+	Panel  = fx.Hex("#16181B") // painel / diálogo
+	Raised = fx.Hex("#1F2226") // cartão sobre o painel
+	SelBG  = fx.Hex("#1F2226")
+
+	// Texto, do mais forte ao mais discreto.
+	White = fx.Hex("#ECEAE4")
+	Text  = fx.Hex("#BDBAB2")
+	Dim   = fx.Hex("#8A8880")
+	Faint = fx.Hex("#5E5D58")
+	Ghost = fx.Hex("#34353A")
+
+	// Seleção: osso claro com texto quase preto.
+	Select = fx.Hex("#D6D1C7")
+	Ink    = fx.Hex("#101113")
+
+	// Acento (latão) e títulos de seção (latão apagado).
+	Accent = fx.Hex("#C9A66B")
+	Cyan   = fx.Hex("#8FA9B8") // aço: barras, cartões e destaques neutros
+	Purple = fx.Hex("#A39A86") // títulos de seção
+
+	// Estado: salvia, tijolo e ocre.
+	Green  = fx.Hex("#86B08F")
+	Red    = fx.Hex("#C77F78")
+	Yellow = fx.Hex("#D1AE6B")
+
+	Matrix = fx.Hex("#5F8F6E") // chuva de código da abertura
+
+	// Grad é o degradê da marca: aço → osso → latão (bem contido).
+	Grad = fx.Gradient{fx.Hex("#6E7B86"), fx.Hex("#9FB0BC"), fx.Hex("#D9D3C7"), fx.Hex("#C9A66B"), fx.Hex("#A9845A")}
 )
 
 func sgr(fg, bg fx.Color, bold bool) string {
