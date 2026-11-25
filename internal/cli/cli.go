@@ -20,6 +20,7 @@ import (
 	"github.com/Rafael-devR/termux-setup.sh/internal/engine"
 	"github.com/Rafael-devR/termux-setup.sh/internal/plan"
 	"github.com/Rafael-devR/termux-setup.sh/internal/sys"
+	"github.com/Rafael-devR/termux-setup.sh/internal/tools"
 	"github.com/Rafael-devR/termux-setup.sh/internal/ui"
 )
 
@@ -134,6 +135,8 @@ com --sim não fazem nenhuma pergunta.`,
 			RunE: func(cmd *cobra.Command, _ []string) error { return runFixed(cmd, f, plan.Undo()) }},
 		&cobra.Command{Use: "verificar", Short: "Mostra as versões instaladas", Args: cobra.NoArgs,
 			RunE: func(cmd *cobra.Command, _ []string) error { return verify(cmd, f) }},
+		&cobra.Command{Use: "doctor", Short: "Diagnostica o ambiente e diz como corrigir (sai com 1 se houver problema)", Args: cobra.NoArgs,
+			RunE: func(cmd *cobra.Command, _ []string) error { return doctor(cmd, f) }},
 		&cobra.Command{Use: "atualizar-app", Short: "Atualiza o próprio termux-setup (procura versão nova no GitHub)", Args: cobra.NoArgs,
 			RunE: func(cmd *cobra.Command, _ []string) error { return selfUpdate(cmd, f) }},
 		&cobra.Command{Use: "modulos", Aliases: []string{"listar"}, Short: "Lista os módulos do catálogo", Args: cobra.NoArgs,
@@ -351,5 +354,33 @@ func selfUpdate(cmd *cobra.Command, f *flags) error {
 		return err
 	}
 	fmt.Fprintf(out, "Atualizado para %s. Abra o termux-setup de novo.\n", v)
+	return nil
+}
+
+// doctor roda as verificações em texto; sai com código 1 se algo falhar.
+func doctor(cmd *cobra.Command, f *flags) error {
+	s, err := services(f)
+	if err != nil {
+		return err
+	}
+	defer s.Close()
+	out := cmd.OutOrStdout()
+	fails := 0
+	s.Tools.Doctor(context.Background(), func(c tools.Check) {
+		mark := "✓"
+		switch c.Status {
+		case tools.Warn:
+			mark = "!"
+		case tools.Fail:
+			mark, fails = "✗", fails+1
+		}
+		fmt.Fprintf(out, "%s %s  %s\n", mark, c.Name, c.Detail)
+		if c.Fix != "" {
+			fmt.Fprintf(out, "    → %s\n", c.Fix)
+		}
+	})
+	if fails > 0 {
+		return ExitError{Code: 1}
+	}
 	return nil
 }

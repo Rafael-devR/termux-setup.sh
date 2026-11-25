@@ -14,6 +14,7 @@ import (
 	"github.com/Rafael-devR/termux-setup.sh/internal/plan"
 	"github.com/Rafael-devR/termux-setup.sh/internal/sys"
 	"github.com/Rafael-devR/termux-setup.sh/internal/testutil"
+	"github.com/Rafael-devR/termux-setup.sh/internal/tools"
 	"github.com/Rafael-devR/termux-setup.sh/modules"
 	"github.com/charmbracelet/x/ansi"
 )
@@ -24,8 +25,12 @@ func services(t *testing.T, anim bool) *app.Services {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return &app.Services{Env: testutil.Env(t), Runner: sys.DryRunner{Delay: time.Millisecond}, Fetch: sys.DryFetcher{},
-		Info: sys.Info{Arch: "aarch64", Android: "14", Model: "Teste"}, Cat: cat, Reg: actions.Registry(), Anim: anim}
+	env := testutil.Env(t)
+	info := sys.Info{Arch: "aarch64", Android: "14", Model: "Teste"}
+	runner := sys.DryRunner{Delay: time.Millisecond}
+	return &app.Services{Env: env, Runner: runner, Fetch: sys.DryFetcher{},
+		Info: info, Cat: cat, Reg: actions.Registry(), Anim: anim,
+		Tools: &tools.Toolbox{Run: runner, Env: env, Info: info, Fake: true}}
 }
 
 func key(s string) tea.KeyPressMsg {
@@ -253,5 +258,93 @@ func TestComposeFillsTerminal(t *testing.T) {
 				t.Fatalf("%v: linha %d com %d colunas", sz, i, w)
 			}
 		}
+	}
+}
+
+// pump entrega a uma tela Tool tudo que o trabalho em segundo plano manda,
+// até ele terminar (ou até n mensagens).
+func pump(t *testing.T, s Screen, c *Ctx, n int) {
+	t.Helper()
+	cmd := s.Init(c)
+	for i := 0; i < n && cmd != nil; i++ {
+		msgs := run(cmd)
+		cmd = nil
+		for _, m := range msgs {
+			var next tea.Cmd
+			s, next = s.Update(c, m)
+			if next != nil {
+				cmd = next
+			}
+			if _, done := m.(toolDoneMsg); done {
+				return
+			}
+		}
+	}
+}
+
+func TestToolsScreensRenderOnPhone(t *testing.T) {
+	s := services(t, false)
+	c := &Ctx{W: 46, H: 40, S: s, RNG: newRNG()}
+	for _, tc := range []struct {
+		name string
+		mk   func(*Ctx) Screen
+		want string
+	}{
+		{"velocidade", speedTool, "Download"},
+		{"internet", netTool, "Tudo certo com a internet"},
+		{"doctor", doctorTool, "Espaço livre"},
+		{"info", infoTool, "Arquitetura"},
+		{"limpeza", cleanTool, "Cache de pacotes"},
+		{"backup", backupTool, "Guarda .bashrc"},
+		{"wifi", wifiTool, "casa-5G"},
+		{"processos", procsTool, "termux-setup"},
+		{"monitor", monitorTool, "Bateria"},
+	} {
+		scr := tc.mk(c)
+		n := 40
+		if tc.name == "monitor" || tc.name == "wifi" || tc.name == "processos" {
+			n = 1 // ao vivo: uma leitura basta
+		}
+		pump(t, scr, c, n)
+		if tl, ok := scr.(*Tool); ok {
+			defer tl.stop()
+		}
+		view := ansi.Strip(scr.View(c))
+		if !strings.Contains(view, tc.want) {
+			t.Errorf("%s: faltou %q na tela:\n%s", tc.name, tc.want, view)
+		}
+		for i, l := range strings.Split(view, "\n") {
+			if w := ansi.StringWidth(l); w > 46 {
+				t.Errorf("%s: linha %d com %d colunas: %q", tc.name, i, w, l)
+			}
+		}
+	}
+}
+
+func TestToolsMenuOpensAndEscGoesBack(t *testing.T) {
+	s := services(t, false)
+	m := New(s, MainMenu(), false)
+	m.Init()
+	m.Update(tea.WindowSizeMsg{Width: 46, Height: 40})
+	_, cmd := m.Update(key("t"))
+	for _, msg := range run(cmd) {
+		m.Update(msg)
+	}
+	if v := ansi.Strip(m.View().Content); !strings.Contains(v, "Teste de velocidade") {
+		t.Fatal(v)
+	}
+}
+
+func TestStressScreenStopsOnEsc(t *testing.T) {
+	s := services(t, false)
+	c := &Ctx{W: 46, H: 40, S: s, RNG: newRNG()}
+	scr := stressTool(c).(*Tool)
+	scr.Init(c)
+	_, cmd := scr.Update(c, key("esc"))
+	if cmd == nil {
+		t.Fatal("esc deveria voltar")
+	}
+	if scr.cancel == nil {
+		t.Fatal("sem cancelamento")
 	}
 }

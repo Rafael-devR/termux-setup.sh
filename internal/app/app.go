@@ -15,6 +15,7 @@ import (
 	"github.com/Rafael-devR/termux-setup.sh/internal/engine"
 	"github.com/Rafael-devR/termux-setup.sh/internal/mirror"
 	"github.com/Rafael-devR/termux-setup.sh/internal/sys"
+	"github.com/Rafael-devR/termux-setup.sh/internal/tools"
 	"github.com/Rafael-devR/termux-setup.sh/internal/ubuntu"
 	"github.com/Rafael-devR/termux-setup.sh/internal/update"
 	"github.com/Rafael-devR/termux-setup.sh/modules"
@@ -34,6 +35,8 @@ type Services struct {
 	Anim   bool // animações ligadas
 	// Updater procura/instala versões novas do próprio termux-setup.
 	Updater *update.Updater
+	// Tools são as ferramentas do menu Ferramentas (bateria, testes, doctor...).
+	Tools *tools.Toolbox
 }
 
 // Config escolhe o modo.
@@ -66,6 +69,7 @@ func New(cfg Config) (*Services, error) {
 		s.Runner = sys.ExecRunner{}
 		s.Fetch = sys.CurlFetcher{Run: s.Runner}
 	}
+	s.Tools = &tools.Toolbox{Run: s.Runner, Env: env, Info: s.Info, Fake: cfg.DryRun}
 	exe, _ := os.Executable()
 	if r, err := filepath.EvalSymlinks(exe); err == nil {
 		exe = r

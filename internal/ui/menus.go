@@ -68,6 +68,8 @@ func MainMenu() *Menu {
 					return Push(NewConfirm(plan.Undo(), []string{"Volta ao estado de antes do 1º uso:",
 						"espelho, tema/fonte/teclas e aliases.", "Pacotes e o Ubuntu NÃO são removidos."}))
 				}},
+			{Key: "t", Label: "Ferramentas (monitor, testes, doctor)", Hint: "Temperatura, bateria, velocidade da internet, diagnóstico, limpeza e backup.",
+				Run: func(*Ctx) tea.Cmd { return Push(ToolsMenu()) }},
 			{Key: "u", Label: "Atualizar o termux-setup", Hint: "Procura versão nova no GitHub e instala (SHA256 conferido).",
 				Run: func(*Ctx) tea.Cmd { return Push(NewAppUpdate()) }},
 			{Key: "0", Label: "Sair", Run: func(*Ctx) tea.Cmd { return Push(&Outro{}) }},
