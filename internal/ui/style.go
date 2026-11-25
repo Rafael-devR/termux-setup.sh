@@ -9,43 +9,6 @@ import (
 	"github.com/charmbracelet/x/ansi"
 )
 
-// Paleta "carvão": superfícies grafite, texto em tons de osso e um único
-// acento latão. As cores de estado são dessaturadas de propósito (nada de
-// neon): o destaque vem do contraste e da hierarquia, não da saturação.
-var (
-	// Superfícies (camadas de fundo, sem bordas de caixa).
-	BG     = fx.Hex("#0E0F11") // fundo da tela
-	Panel  = fx.Hex("#16181B") // painel / diálogo
-	Raised = fx.Hex("#1F2226") // cartão sobre o painel
-	SelBG  = fx.Hex("#1F2226")
-
-	// Texto, do mais forte ao mais discreto.
-	White = fx.Hex("#ECEAE4")
-	Text  = fx.Hex("#BDBAB2")
-	Dim   = fx.Hex("#8A8880")
-	Faint = fx.Hex("#5E5D58")
-	Ghost = fx.Hex("#34353A")
-
-	// Seleção: osso claro com texto quase preto.
-	Select = fx.Hex("#D6D1C7")
-	Ink    = fx.Hex("#101113")
-
-	// Acento (latão) e títulos de seção (latão apagado).
-	Accent = fx.Hex("#C9A66B")
-	Cyan   = fx.Hex("#8FA9B8") // aço: barras, cartões e destaques neutros
-	Purple = fx.Hex("#A39A86") // títulos de seção
-
-	// Estado: salvia, tijolo e ocre.
-	Green  = fx.Hex("#86B08F")
-	Red    = fx.Hex("#C77F78")
-	Yellow = fx.Hex("#D1AE6B")
-
-	Matrix = fx.Hex("#5F8F6E") // chuva de código da abertura
-
-	// Grad é o degradê da marca: aço → osso → latão (bem contido).
-	Grad = fx.Gradient{fx.Hex("#6E7B86"), fx.Hex("#9FB0BC"), fx.Hex("#D9D3C7"), fx.Hex("#C9A66B"), fx.Hex("#A9845A")}
-)
-
 func sgr(fg, bg fx.Color, bold bool) string {
 	s := "\x1b[0"
 	if bold {

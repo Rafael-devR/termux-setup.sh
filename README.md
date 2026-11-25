@@ -102,4 +102,6 @@ Utilitários dentro do app, no menu **Ferramentas**:
 
 Bateria, temperatura e Wi-Fi usam o app **Termux:API**; sem ele a tela avisa o que falta. O Android
 bloqueia a CPU (`/proc/stat`) em algumas versões, e então ela aparece como "indisponível".
+Cores: 4 temas escuros (tecla `c`); veja `docs/DESIGN.md`.
+
 A lógica fica em `internal/tools` (com testes) e cada tela é uma `Tool` em `internal/ui`.
