@@ -70,6 +70,8 @@ func MainMenu() *Menu {
 				}},
 			{Key: "t", Label: "Ferramentas (monitor, testes, doctor)", Hint: "Temperatura, bateria, velocidade da internet, diagnóstico, limpeza e backup.",
 				Run: func(*Ctx) tea.Cmd { return Push(ToolsMenu()) }},
+			{Key: "c", Label: "Tema da interface (cores)", Hint: "Escolha entre 4 paletas escuras, com pré-visualização ao vivo.",
+				Run: func(*Ctx) tea.Cmd { return Push(NewThemePicker()) }},
 			{Key: "u", Label: "Atualizar o termux-setup", Hint: "Procura versão nova no GitHub e instala (SHA256 conferido).",
 				Run: func(*Ctx) tea.Cmd { return Push(NewAppUpdate()) }},
 			{Key: "0", Label: "Sair", Run: func(*Ctx) tea.Cmd { return Push(&Outro{}) }},

@@ -80,6 +80,9 @@ type Model struct {
 
 // New cria a interface começando em first.
 func New(s *app.Services, first Screen, auto bool) *Model {
+	if s != nil && s.Env != nil {
+		LoadTheme(s.Env.Home) // tema salvo (ou TSETUP_TEMA)
+	}
 	return &Model{ctx: &Ctx{W: 80, H: 24, S: s, RNG: newRNG(), Auto: auto},
 		stack: []Screen{first}, reveal: 1 << 20, termW: 80, termH: 24}
 }
